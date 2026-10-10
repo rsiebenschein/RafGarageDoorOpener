@@ -168,6 +168,7 @@ class AppContainer(context: Context) {
         departureOnDoorOpen = departureOnDoorOpen,
         leftOpenChecks = leftOpenCheckScheduler,
         clock = clock,
+        scope = applicationScope,
     )
 
     val automationCoordinator = AutomationCoordinator(
