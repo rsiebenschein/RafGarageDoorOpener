@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.raf.garagedoor.door.DoorCommand
+import com.raf.garagedoor.door.DoorCommandEvent
 import com.raf.garagedoor.door.DoorId
 import com.raf.garagedoor.door.DoorState
 import com.raf.garagedoor.door.GarageDoor
@@ -13,9 +14,11 @@ import com.raf.garagedoor.door.GarageDoorController
 import com.raf.garagedoor.ui.appContainer
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.Clock
@@ -33,6 +36,7 @@ data class DoorUiState(
 class DoorViewModel(
     private val controller: GarageDoorController,
     private val clock: Clock,
+    commandEvents: Flow<DoorCommandEvent> = emptyFlow(),
     private val onCommandAccepted: suspend (DoorCommand) -> Unit = {},
 ) : ViewModel() {
 
@@ -41,6 +45,11 @@ class DoorViewModel(
 
     private var pollingJob: Job? = null
     private var fastPollUntil: Instant = Instant.MIN
+
+    init {
+        // Commands from notifications or hands-free are shown immediately, like taps on this screen.
+        viewModelScope.launch { commandEvents.collect { showCommandInProgress(it.doorId, it.command) } }
+    }
 
     fun startPolling() {
         if (pollingJob?.isActive == true) return
@@ -93,7 +102,6 @@ class DoorViewModel(
         mutableState.update { it.copy(pendingCommandDoor = doorId, errorMessage = null) }
         try {
             controller.execute(doorId, command)
-            showCommandInProgress(doorId, command)
             onCommandAccepted(command)
         } catch (error: GarageDoorControlException) {
             showError(error)
@@ -108,7 +116,7 @@ class DoorViewModel(
             state.copy(doors = state.doors.map { if (it.id == doorId) it.copy(state = movingState) else it })
         }
         fastPollUntil = clock.instant().plus(FAST_POLL_WINDOW)
-        restartPolling(initialDelay = FAST_POLL_INTERVAL)
+        if (pollingJob != null) restartPolling(initialDelay = FAST_POLL_INTERVAL)
     }
 
     private fun showError(error: GarageDoorControlException) =
@@ -117,7 +125,8 @@ class DoorViewModel(
     companion object {
         private val IDLE_POLL_INTERVAL: Duration = Duration.ofSeconds(30)
         private val FAST_POLL_INTERVAL: Duration = Duration.ofSeconds(3)
-        private val FAST_POLL_WINDOW: Duration = Duration.ofSeconds(45)
+        /** Remote closes beep for several seconds before moving, and myQ can lag, so allow plenty. */
+        private val FAST_POLL_WINDOW: Duration = Duration.ofSeconds(90)
 
         fun commandFor(door: GarageDoor): DoorCommand? = when {
             !door.isOnline -> null
@@ -129,7 +138,7 @@ class DoorViewModel(
         val Factory = viewModelFactory {
             initializer {
                 val container = appContainer()
-                DoorViewModel(container.garageDoorController, container.clock) { command ->
+                DoorViewModel(container.garageDoorController, container.clock, container.doorCommandEvents.events) { command ->
                     container.departureOnDoorOpen.onCommandAccepted(command)
                     container.leftOpenCheckScheduler.onCommandAccepted(command)
                 }

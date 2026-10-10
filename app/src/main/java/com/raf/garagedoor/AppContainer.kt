@@ -25,6 +25,8 @@ import com.raf.garagedoor.automation.PresenceTracker
 import com.raf.garagedoor.bluetooth.CarConnectionRepository
 import com.raf.garagedoor.bluetooth.DataStoreCarConnectionRepository
 import com.raf.garagedoor.bluetooth.PairedBluetoothDevices
+import com.raf.garagedoor.door.AnnouncingDoorController
+import com.raf.garagedoor.door.DoorCommandEvents
 import com.raf.garagedoor.door.GarageDoorController
 import com.raf.garagedoor.door.TransientRetry
 import com.raf.garagedoor.geofence.DataStoreGeofenceSettingsRepository
@@ -79,8 +81,13 @@ class AppContainer(context: Context) {
         clock = clock,
     )
 
-    val garageDoorController: GarageDoorController =
-        MyQGarageDoorController(MyQDeviceApi(config, http, headers, myQSession))
+    /** Every accepted command, from any sender, so a visible door screen shows the movement at once. */
+    val doorCommandEvents = DoorCommandEvents()
+
+    val garageDoorController: GarageDoorController = AnnouncingDoorController(
+        MyQGarageDoorController(MyQDeviceApi(config, http, headers, myQSession)),
+        doorCommandEvents,
+    )
 
     val geofenceSettings: GeofenceSettingsRepository = DataStoreGeofenceSettingsRepository(context)
 
