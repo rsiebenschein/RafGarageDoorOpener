@@ -1,0 +1,209 @@
+# Hands-free field test log
+
+A record of each real-world test: what Diagnostics and the Activity log showed, the root cause
+found, and what was changed. **Read this before changing hands-free behavior** so the same ideas
+are not tried twice. Newest test first. Times are local (EDT). Never paste garage coordinates here;
+distances only.
+
+## How to pull the logs from the phone
+
+With the phone on USB (debug build), from the repo root:
+
+```sh
+ADB=~/Library/Android/sdk/platform-tools/adb
+$ADB exec-out run-as com.raf.garagedoor cat files/datastore/automation_diagnostics.preferences_pb > diagnostics.pb
+$ADB exec-out run-as com.raf.garagedoor cat files/datastore/automation_activity_log.preferences_pb > activity.pb
+```
+
+Each file holds one JSON array (newest first) inside a small protobuf wrapper; `strings` or a
+regex for `\[.*\]` extracts it. Other useful stores in the same folder: `automation_presence`
+(current HOME/AWAY zone, armed flag, registered fingerprint) and `automation_settings`.
+
+Android's own record (kept for a few hours) shows when anything used GPS for this app, including
+Google Play services evaluating its geofences (lines with `WorkSource{... com.raf.garagedoor}`):
+
+```sh
+$ADB shell dumpsys location > location.txt          # GPS registrations, with times
+$ADB logcat -d -v time | grep -i garagedoor         # broadcasts and service starts
+```
+
+Quick checks that the phone allows background wake-ups:
+
+```sh
+$ADB shell dumpsys deviceidle whitelist | grep garage     # battery Unrestricted
+$ADB shell am get-standby-bucket com.raf.garagedoor       # 5 = exempt
+$ADB shell cmd appops get com.raf.garagedoor | grep -E "LOCATION|RUN_ANY|ACTIVITY"
+```
+
+---
+
+## Test 3: bike ride, 2026-10-10 about 13:04 to 16:57
+
+**Settings:** open within 125 ft, close beyond 145 ft, home fence 492 ft, wake-up zone 3,281 ft,
+open countdown 3 s, close countdown 5 s, left-open *Remind me* after 10 min.
+
+**What the user saw:** a few short walk-out tests around 13:05 to 13:10, then opened and closed the
+door from the app around 13:30 and rode off. Came back around 16:28: no auto-open, no sign the app
+noticed. Walked in, opened the garage with the wall button, turned the phone's screen on around
+16:30. Then left the door open for over 10 minutes and got no reminder.
+
+**What Diagnostics and the Activity log showed:**
+
+| Time | Event |
+|---|---|
+| 13:05:20 | Departure CLOSE at 499 ft, but myQ failed 3 times in 47 s (timeout, then DNS "Unable to resolve host", then timeout): phone clinging to weak home Wi-Fi. FAILED |
+| 13:07:02 | Return detected (OPEN decision, door already open) |
+| 13:09:01 | CLOSED at 550 ft (worked) |
+| 13:09:55 | Return detected, but **SKIPPED_COOLDOWN**: the 90 s cooldown after the close blocked a genuine open |
+| 13:28 to 13:35 | Door opened from app, departure seen, CLOSE decided (already closed by the user) |
+| 13:35:15 | GPS jitter (129 ft, ±72 ft) briefly set HOME; corrected 26 s later at 514 ft (armed) |
+| 13:41:33 | NEARBY session ended LEFT_AREA (beyond 1.25 x wake-up zone). From here only geofences were watching |
+| 14:24 to 14:27 | Rode along the edge of the wake-up zone; ENTER/EXIT fired 4 times. ARRIVAL session got only 12 fixes in 3.5 minutes (best ±100 ft), probably because the phone was in a bag |
+| 16:28 | **Arrived home: nothing fired** |
+| 16:30:31 | Screen turned on: wake-up and home ENTER fired together at 27 ft. OPEN decision, door already open |
+| 16:40:34 | Left-open check first saw the door open (12 minutes after it opened) |
+| 16:55:34 | Reminder posted ("Open 15 min"); the door had been open about 25 minutes |
+
+**Evidence from Android's own logs** (`adb shell dumpsys location`, `adb logcat`):
+
+- Geofence evaluation (Google Play services GPS requests on this app's behalf) ran only at
+  **15:00, 15:41 and 16:10** between 14:27 and the screen turning on at 16:30, roughly every
+  30-40 minutes. A geofence cannot catch an arrival on this phone with the screen off.
+- Background-started sessions log "Foreground service started from background can not have
+  location access". This is **not** the blocker: the GPS registration for the 14:24 session is
+  shown as permitted and active from 14:24:01 to 14:27:38, because "Allow all the time" is granted.
+- Phone settings were fine: battery Unrestricted, standby bucket exempt, all permissions granted.
+- myQ's `last_update` time matches the real open time (the app showed "Open · 23 min ago" at
+  16:53), so it can be trusted as "open since".
+
+**Root causes:**
+
+1. After leaving the area, arrival detection depended entirely on geofences, which were checked
+   only every 30-40 minutes.
+2. The left-open monitor counted from when its 15-minute periodic check first saw the door open,
+   then waited for another periodic run: up to about 30 minutes late in total.
+3. The 90 s cooldown also blocked opening on a quick return.
+4. 3 myQ attempts over about 47 s were not enough at the Wi-Fi edge.
+
+**Fixes:**
+
+- NEARBY and the 15-minute ARRIVAL session are replaced by one **away watch** (ARRIVAL purpose)
+  that runs from departure until home, up to 12 hours, with tiered precision: Wi-Fi/cell every
+  3 minutes beyond 15 km, every minute within 15 km, every 10 s within 2 km, and GPS every 2 s
+  within 300 m. The service starts it as a follow-up to a departure, so the notification switches
+  to "Away: watching for your return". It resumes after a reboot or app update while AWAY.
+- The left-open monitor starts its timer at myQ's open time, and queues a one-off check for the
+  exact deadline (and for the 30-minute repeat). Opening from the app or by hands-free also
+  queues a check at the limit.
+- The cooldown now blocks only closing; opening still needs a genuine trip away (arming).
+- Automatic commands retry 5 times over about a minute (3, 7, 15 and 30 s waits).
+
+**Follow-up the same evening (before any new test):**
+
+- Fixed check intervals replaced by `ArrivalCadence`: the next check comes after half the time to
+  get home at 60 mph (20 mi: 10 min, 40 mi: 20 min, capped at 1 hour; steps from 10 s to 60 min).
+  It uses the nearest point the fix's accuracy allows, so a vague fix never delays a check. GPS
+  every 2 s within 300 m. The away watch's 12-hour limit became a 30-day safety net.
+- New engine rule: no auto-open unless the previous reading is at most 5 minutes old. Otherwise
+  the user is marked HOME without opening ("not opened: previous reading too old" in Diagnostics).
+  This would have applied at 16:30 in this test (previous reading at 14:27).
+- **Clear logs** button (Activity log and Diagnostics, with confirmation) empties both logs and
+  records when the build was installed.
+- Left-open polling: myQ is now asked as often as the limit (at least every 15 minutes) through a
+  chain of one-off WorkManager checks, with the 15-minute periodic job as a backstop. A check
+  always falls inside the limit, so wall-button opens are reminded on time. The Home Assistant
+  integration polls every 30 s, so 5-minute polling is far below any rate limit. The settings
+  screen's "up to 15 minutes later" warning was replaced.
+
+**Not yet verified:** a full ride with the new away watch; the exact-deadline reminder.
+
+---
+
+## Test 2: bike ride, 2026-10-10 about 12:28 to 12:34
+
+**Settings:** open within 125 ft, close beyond 145 ft (changed from 80 ft at 12:28), wake-up zone
+3,281 ft. Phone checked afterwards: Unrestricted battery, standby bucket exempt, background
+location, activity recognition and notifications all granted.
+
+**What the user saw:** riding away, nothing happened until the app was opened on the Hands-free
+settings screen; the door then closed. Coming back, the door never opened, not even when standing
+next to it with the app open.
+
+**What Diagnostics showed:**
+
+| Time | Event |
+|---|---|
+| 12:28:05 | Re-registered (home zone changed to 145 ft); home/away reset, then HOME |
+| 12:28:07 | Door opened from app, so a DEPARTURE session should have kept watching for 5 minutes |
+| 12:28:09 | The initial geofence ENTER caused by re-registering started an ARRIVAL session. The service **cancelled the running DEPARTURE session** to start it; ARRIVAL ended at once (already HOME). No session left running. |
+| 12:31:34 | Home geofence EXIT only fired at 506 ft, when the app was opened. Zone HOME to AWAY, armed, decision CLOSE |
+| 12:31:39 | Door CLOSED at 506 ft. NEARBY session started (correct) |
+| 12:33:12 | NEARBY session saw the arrival and saved HOME plus decision OPEN. At the same moment the home geofence ENTER started an ARRIVAL session, which **cancelled NEARBY mid-command**. No OPEN, no failure, nothing in the Activity log. ARRIVAL then found HOME already and ended. |
+| 12:34:07 | Geofence settings saved again, so home/away reset to UNKNOWN, then HOME without arming. Opening the app next to the door could not count as an arrival. |
+
+**Root causes:**
+
+1. `PresenceTrackingService` replaced the running session whenever a trigger with a different
+   purpose arrived. Cancelling it killed both the departure watch (12:28) and an in-flight open
+   (12:33).
+2. The home geofence used the close radius (145 ft / 44 m). Android geofences under about
+   100 to 150 m fire late or only when another app requests location.
+
+**Fixes:**
+
+- A running session is never replaced; the extra trigger is logged as
+  "X request ignored: Y session already running".
+- Fix processing in `PresenceTracker` (save state, then run the door command) is
+  `NonCancellable`, so ending a session or leaving the screen cannot drop a committed decision.
+- The system home fence is at least 150 m (492 ft). It only wakes the app; open and close still
+  use the user's exact radii.
+
+**Verified so far:** unit tests pass. After install, Diagnostics showed the 12:28 sequence again,
+now handled correctly ("ARRIVAL request ignored: DEPARTURE session already running").
+**Not yet verified:** a full ride with the app closed and the screen off.
+
+**Lesson:** saving the garage location or radii resets home/away. Do not save just before a test.
+
+---
+
+## Test 1: bike ride, 2026-10-10 about 11:50 to 11:56
+
+**Activity log:**
+
+| Time | Event |
+|---|---|
+| 11:51:58 | OPENED at 59 ft |
+| 11:53:54 | FAILED at 507 ft: "Could not reach myQ: timeout" (Wi-Fi to cellular handoff) |
+| 11:55:59 | OPENED at 17 ft |
+
+**Findings:** a single myQ call fails during the Wi-Fi to cellular handoff in the driveway, and
+arrival came late on a short trip that never left the wake-up zone.
+
+**Fixes:** myQ commands retry up to 3 times over about 10 seconds (`TransientRetry`), with an
+**Open now / Close now** notification if all attempts fail. A NEARBY session was added after
+departure so short trips inside the wake-up zone are watched on the way back.
+
+---
+
+## Open risks and ideas not yet tried
+
+- **Do not rely on geofences for arrival.** Test 3 proved they are checked only every 30-40
+  minutes with the screen off. A larger wake-up zone would not help. They are wake-up triggers
+  and backups only.
+- **Battery cost of the away watch** is untested over a full day. Tune `ArrivalCadence`
+  (assumed top speed, share of time to home, step list) before changing anything else.
+- **An arrival faster than 60 mph on average** (e.g. a long highway stretch) can shorten the
+  warning, but the next check always comes before half the 60 mph time to home, and each
+  closer check comes sooner.
+- **Hourly checks when far away**: a trip home that takes under an hour after the last far-away
+  check (e.g. a flight landing close to home) is seen late and is not auto-opened, by design.
+- **Phone in a bag** gave ±100 ft fixes (test 3). Opening accepts fixes up to ±131 ft, but
+  arming needs ±82 ft. The departure normally arms before the phone goes in the bag.
+- **Departure without opening from the app** (car remote or wall button) relies on activity
+  recognition (it did not fire during the 3-minute ride in test 2) and the home fence EXIT, which
+  can be up to 30-40 minutes late with the screen off.
+- **Failed automatic close is not retried later.** If all 5 myQ attempts fail, only the
+  notification's **Close now** button remains. A delayed retry would need to check the user is
+  still away before closing.
+- **Force stop** (Settings, App info, Force stop) removes every geofence until the app is opened
+  again. Swiping the app away from Recents does not.

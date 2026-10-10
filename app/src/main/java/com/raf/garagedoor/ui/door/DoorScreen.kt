@@ -44,12 +44,18 @@ import kotlinx.coroutines.delay
 import java.time.Instant
 
 private const val ELAPSED_LABEL_REFRESH_MILLIS = 30_000L
+
+class AutomationCardState(
+    val geofence: GarageGeofence?,
+    val isEnabled: Boolean,
+    val onEditLocation: () -> Unit,
+    val onOpenSettings: () -> Unit,
+)
 private const val AUTOMATION_CARD_KEY = "automation"
 
 @Composable
 fun DoorRoute(
-    geofence: GarageGeofence?,
-    onEditGeofence: () -> Unit,
+    automationCard: AutomationCardState,
     onSignOut: () -> Unit,
     viewModel: DoorViewModel = viewModel(factory = DoorViewModel.Factory),
 ) {
@@ -60,8 +66,7 @@ fun DoorRoute(
     }
     DoorScreen(
         state = state,
-        geofence = geofence,
-        onEditGeofence = onEditGeofence,
+        automationCard = automationCard,
         onToggle = viewModel::toggle,
         onRefresh = viewModel::refreshNow,
         onDismissError = viewModel::dismissError,
@@ -72,8 +77,7 @@ fun DoorRoute(
 @Composable
 fun DoorScreen(
     state: DoorUiState,
-    geofence: GarageGeofence?,
-    onEditGeofence: () -> Unit,
+    automationCard: AutomationCardState,
     onToggle: (GarageDoor) -> Unit,
     onRefresh: () -> Unit,
     onDismissError: () -> Unit,
@@ -89,7 +93,7 @@ fun DoorScreen(
         topBar = { DoorTopBar(onRefresh = onRefresh, onSignOut = onSignOut) },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
-        DoorContent(state, geofence, onEditGeofence, onToggle, Modifier.padding(padding))
+        DoorContent(state, automationCard, onToggle, Modifier.padding(padding))
     }
 }
 
@@ -119,8 +123,7 @@ private fun DoorTopBar(onRefresh: () -> Unit, onSignOut: () -> Unit) {
 @Composable
 private fun DoorContent(
     state: DoorUiState,
-    geofence: GarageGeofence?,
-    onEditGeofence: () -> Unit,
+    automationCard: AutomationCardState,
     onToggle: (GarageDoor) -> Unit,
     modifier: Modifier,
 ) {
@@ -138,7 +141,14 @@ private fun DoorContent(
             items(state.doors, key = { it.id.serialNumber }) { door ->
                 DoorCard(door, isCommandPending = state.pendingCommandDoor == door.id, now = now) { onToggle(door) }
             }
-            item(key = AUTOMATION_CARD_KEY) { AutomationSummaryCard(geofence, onEditGeofence) }
+            item(key = AUTOMATION_CARD_KEY) {
+                AutomationSummaryCard(
+                    geofence = automationCard.geofence,
+                    isAutomationEnabled = automationCard.isEnabled,
+                    onEditLocation = automationCard.onEditLocation,
+                    onOpenSettings = automationCard.onOpenSettings,
+                )
+            }
         }
     }
 }

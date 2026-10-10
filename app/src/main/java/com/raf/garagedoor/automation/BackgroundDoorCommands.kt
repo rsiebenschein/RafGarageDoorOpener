@@ -1,0 +1,50 @@
+package com.raf.garagedoor.automation
+
+import com.raf.garagedoor.door.DoorCommand
+import com.raf.garagedoor.door.DoorState
+import com.raf.garagedoor.door.GarageDoor
+import com.raf.garagedoor.door.GarageDoorControlException
+import com.raf.garagedoor.door.GarageDoorController
+import com.raf.garagedoor.door.TransientRetry
+import java.time.Clock
+
+/** Door commands issued without the app on screen: notification buttons and the left-open auto-close. */
+class BackgroundDoorCommands(
+    private val controller: GarageDoorController,
+    private val retry: TransientRetry,
+    private val activityLog: ActivityLogRepository,
+    private val alerts: AutomationAlerts,
+    private val clock: Clock,
+) {
+    suspend fun run(command: DoorCommand, reason: String) {
+        try {
+            val door = retry.run { controller.listDoors() }.firstOrNull()
+                ?: return recordFailure(command, "No garage door found on the myQ account")
+            if (!isNeeded(command, door)) return record(alreadyThere(command), reason)
+            retry.run { controller.execute(door.id, command) }
+            record(if (command == DoorCommand.OPEN) AutomationEventType.OPENED else AutomationEventType.CLOSED, reason)
+        } catch (error: GarageDoorControlException) {
+            recordFailure(command, error.message)
+        }
+    }
+
+    private suspend fun record(type: AutomationEventType, reason: String) {
+        val event = AutomationEvent(type, clock.millis(), distanceFeet = null, detail = reason)
+        activityLog.record(event)
+        if (type == AutomationEventType.OPENED || type == AutomationEventType.CLOSED) alerts.showResult(event)
+    }
+
+    private suspend fun recordFailure(command: DoorCommand, detail: String?) {
+        val event = AutomationEvent(AutomationEventType.FAILED, clock.millis(), distanceFeet = null, detail = detail)
+        activityLog.record(event)
+        alerts.showFailure(event, retryCommand = command)
+    }
+
+    private fun isNeeded(command: DoorCommand, door: GarageDoor): Boolean = when (command) {
+        DoorCommand.OPEN -> door.state == DoorState.CLOSED
+        DoorCommand.CLOSE -> door.state == DoorState.OPEN || door.state == DoorState.STOPPED
+    }
+
+    private fun alreadyThere(command: DoorCommand) =
+        if (command == DoorCommand.OPEN) AutomationEventType.ALREADY_OPEN else AutomationEventType.ALREADY_CLOSED
+}

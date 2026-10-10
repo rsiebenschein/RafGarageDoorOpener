@@ -11,7 +11,10 @@ interface GarageDoorController {
 }
 
 abstract class GarageDoorControlException(message: String, cause: Throwable? = null) :
-    Exception(message, cause)
+    Exception(message, cause) {
+    /** True for failures worth retrying shortly, such as a network drop while switching Wi-Fi to cellular. */
+    open val isTransient: Boolean get() = false
+}
 
 /** Marks failures that can only be resolved by the user signing in again. */
 interface RequiresSignIn

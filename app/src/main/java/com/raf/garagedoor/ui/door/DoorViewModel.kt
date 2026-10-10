@@ -33,6 +33,7 @@ data class DoorUiState(
 class DoorViewModel(
     private val controller: GarageDoorController,
     private val clock: Clock,
+    private val onCommandAccepted: suspend (DoorCommand) -> Unit = {},
 ) : ViewModel() {
 
     private val mutableState = MutableStateFlow(DoorUiState())
@@ -92,7 +93,8 @@ class DoorViewModel(
         mutableState.update { it.copy(pendingCommandDoor = doorId, errorMessage = null) }
         try {
             controller.execute(doorId, command)
-            onCommandAccepted(doorId, command)
+            showCommandInProgress(doorId, command)
+            onCommandAccepted(command)
         } catch (error: GarageDoorControlException) {
             showError(error)
         } finally {
@@ -100,7 +102,7 @@ class DoorViewModel(
         }
     }
 
-    private fun onCommandAccepted(doorId: DoorId, command: DoorCommand) {
+    private fun showCommandInProgress(doorId: DoorId, command: DoorCommand) {
         val movingState = if (command == DoorCommand.OPEN) DoorState.OPENING else DoorState.CLOSING
         mutableState.update { state ->
             state.copy(doors = state.doors.map { if (it.id == doorId) it.copy(state = movingState) else it })
@@ -127,7 +129,10 @@ class DoorViewModel(
         val Factory = viewModelFactory {
             initializer {
                 val container = appContainer()
-                DoorViewModel(container.garageDoorController, container.clock)
+                DoorViewModel(container.garageDoorController, container.clock) { command ->
+                    container.departureOnDoorOpen.onCommandAccepted(command)
+                    container.leftOpenCheckScheduler.onCommandAccepted(command)
+                }
             }
         }
     }

@@ -14,10 +14,18 @@ class MyQAuthenticationException(message: String) : MyQException(message), Requi
 class MyQRateLimitedException :
     MyQException("myQ is temporarily rate limiting this account; wait a while before retrying")
 
-class MyQApiException(val statusCode: Int, message: String) : MyQException(message)
+class MyQApiException(val statusCode: Int, message: String) : MyQException(message) {
+    override val isTransient: Boolean get() = statusCode >= HTTP_SERVER_ERROR
+
+    private companion object {
+        const val HTTP_SERVER_ERROR = 500
+    }
+}
 
 class MyQNetworkException(cause: IOException) :
-    MyQException("Could not reach myQ: ${cause.message}", cause)
+    MyQException("Could not reach myQ: ${cause.message}", cause) {
+    override val isTransient: Boolean get() = true
+}
 
 class MyQResponseFormatException(message: String, cause: Throwable? = null) :
     MyQException(message, cause)

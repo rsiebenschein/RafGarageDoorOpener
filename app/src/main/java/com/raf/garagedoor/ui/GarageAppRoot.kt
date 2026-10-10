@@ -13,6 +13,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.raf.garagedoor.ui.automation.ActivityLogRoute
+import com.raf.garagedoor.ui.automation.AutomationSettingsRoute
+import com.raf.garagedoor.ui.automation.AutomationViewModel
+import com.raf.garagedoor.ui.automation.DiagnosticsRoute
+import com.raf.garagedoor.ui.door.AutomationCardState
 import com.raf.garagedoor.ui.door.DoorRoute
 import com.raf.garagedoor.ui.geofence.GeofenceEditorRoute
 import com.raf.garagedoor.ui.geofence.GeofenceViewModel
@@ -20,7 +25,7 @@ import com.raf.garagedoor.ui.session.SessionStatus
 import com.raf.garagedoor.ui.session.SessionViewModel
 import com.raf.garagedoor.ui.session.SignInRoute
 
-private enum class SignedInDestination { DOORS, GEOFENCE_EDITOR }
+private enum class SignedInDestination { DOORS, GEOFENCE_EDITOR, AUTOMATION_SETTINGS, ACTIVITY_LOG, DIAGNOSTICS }
 
 @Composable
 fun GarageAppRoot(sessionViewModel: SessionViewModel) {
@@ -32,23 +37,44 @@ fun GarageAppRoot(sessionViewModel: SessionViewModel) {
     }
 }
 
-/** Two destinations do not justify a navigation library; the back stack is a single saveable value. */
+/** A handful of flat destinations does not justify a navigation library; the back stack is one saveable value. */
 @Composable
 private fun SignedInNavigation(onSignOut: () -> Unit) {
     var destination by rememberSaveable { mutableStateOf(SignedInDestination.DOORS) }
     val geofenceViewModel: GeofenceViewModel = viewModel(factory = GeofenceViewModel.Factory)
-    val geofenceState by geofenceViewModel.state.collectAsStateWithLifecycle()
+    val automationViewModel: AutomationViewModel = viewModel(factory = AutomationViewModel.Factory)
+    val navigate: (SignedInDestination) -> Unit = { destination = it }
     when (destination) {
-        SignedInDestination.DOORS -> DoorRoute(
-            geofence = geofenceState.saved,
-            onEditGeofence = { destination = SignedInDestination.GEOFENCE_EDITOR },
-            onSignOut = onSignOut,
+        SignedInDestination.DOORS -> DoorDestination(geofenceViewModel, automationViewModel, navigate, onSignOut)
+        SignedInDestination.GEOFENCE_EDITOR -> GeofenceEditorRoute(geofenceViewModel, onBack = { navigate(SignedInDestination.DOORS) })
+        SignedInDestination.AUTOMATION_SETTINGS -> AutomationSettingsRoute(
+            viewModel = automationViewModel,
+            onBack = { navigate(SignedInDestination.DOORS) },
+            onEditLocation = { navigate(SignedInDestination.GEOFENCE_EDITOR) },
+            onOpenActivityLog = { navigate(SignedInDestination.ACTIVITY_LOG) },
+            onOpenDiagnostics = { navigate(SignedInDestination.DIAGNOSTICS) },
         )
-        SignedInDestination.GEOFENCE_EDITOR -> GeofenceEditorRoute(
-            viewModel = geofenceViewModel,
-            onBack = { destination = SignedInDestination.DOORS },
-        )
+        SignedInDestination.ACTIVITY_LOG -> ActivityLogRoute(automationViewModel, onBack = { navigate(SignedInDestination.AUTOMATION_SETTINGS) })
+        SignedInDestination.DIAGNOSTICS -> DiagnosticsRoute(automationViewModel, onBack = { navigate(SignedInDestination.AUTOMATION_SETTINGS) })
     }
+}
+
+@Composable
+private fun DoorDestination(
+    geofenceViewModel: GeofenceViewModel,
+    automationViewModel: AutomationViewModel,
+    navigate: (SignedInDestination) -> Unit,
+    onSignOut: () -> Unit,
+) {
+    val geofenceState by geofenceViewModel.state.collectAsStateWithLifecycle()
+    val automationState by automationViewModel.state.collectAsStateWithLifecycle()
+    val automationCard = AutomationCardState(
+        geofence = geofenceState.saved,
+        isEnabled = automationState?.settings?.isEnabled == true,
+        onEditLocation = { navigate(SignedInDestination.GEOFENCE_EDITOR) },
+        onOpenSettings = { navigate(SignedInDestination.AUTOMATION_SETTINGS) },
+    )
+    DoorRoute(automationCard = automationCard, onSignOut = onSignOut)
 }
 
 @Composable

@@ -50,7 +50,105 @@
     <string name="automation_card_title">Auto open &amp; close</string>
     <string name="automation_card_not_set_up">Place your garage on the map and choose how close you need to be for the door to open.</string>
     <string name="automation_card_summary">Opens within %1$d ft · closes beyond %2$d ft</string>
-    <string name="automation_card_next_step">Location saved. Hands-free opening and closing will be switched on in the next update.</string>
     <string name="automation_card_set_up">Set up</string>
+    <string name="automation_card_settings">Hands-free settings</string>
     <string name="automation_card_edit">Edit location</string>
+
+    <string name="automation_title">Hands-free</string>
+    <string name="automation_master_switch">Auto open &amp; close</string>
+    <string name="automation_needs_location">Set the garage location first.</string>
+    <string name="automation_off">Off. Turn on after completing the setup below.</string>
+    <string name="automation_status_on">Hands-free is on</string>
+    <string name="automation_status_off">Hands-free is off</string>
+    <string name="presence_home">Home</string>
+    <string name="presence_away">Away</string>
+    <string name="presence_unknown">Waiting for a location</string>
+    <string name="presence_with_distance">%1$s · %2$s from the garage</string>
+    <string name="distance_feet">%1$d ft</string>
+    <string name="distance_miles">%1$.1f mi</string>
+
+    <string name="setup_title">Phone setup</string>
+    <string name="setup_precise_location">Precise location</string>
+    <string name="setup_precise_location_detail">Needed to measure your distance to the garage.</string>
+    <string name="setup_background_location">Allow all the time</string>
+    <string name="setup_background_location_detail">Lets Android wake the app when you approach, even while it is closed. Choose \"Allow all the time\".</string>
+    <string name="setup_activity">Physical activity</string>
+    <string name="setup_activity_detail">Notices when you start walking or driving away, so the door closes promptly.</string>
+    <string name="setup_notifications">Notifications</string>
+    <string name="setup_notifications_detail">Shows what the door did and lets you cancel a countdown.</string>
+    <string name="setup_battery">Battery: Unrestricted</string>
+    <string name="setup_battery_detail">Stops Samsung from putting the app to sleep and missing your arrival.</string>
+    <string name="setup_allow">Allow</string>
+    <string name="setup_done">Done</string>
+
+    <string name="countdown_title">Countdown before moving the door</string>
+    <string name="countdown_open_label">Before opening: %1$s</string>
+    <string name="countdown_close_label">Before closing: %1$s</string>
+    <string name="countdown_none">none</string>
+    <string name="countdown_seconds">%1$d s</string>
+    <string name="countdown_explanation">A notification lets you cancel during the countdown. For opening, the countdown starts early based on your speed, so the door still begins moving at your radius.</string>
+
+    <string name="car_title">Only auto-open in my car</string>
+    <string name="car_detail">Opens only while your phone is connected to the car you pick. Auto-close still works on foot.</string>
+    <string name="car_allow_bluetooth">Allow Bluetooth access</string>
+    <string name="car_choose">Choose your car</string>
+    <string name="car_connected">Connected now</string>
+    <string name="car_not_connected">Not connected right now</string>
+
+    <string name="activity_log_title">Activity log</string>
+    <string name="activity_log_empty">Nothing yet. Automatic opens and closes will appear here.</string>
+    <string name="event_opened">Opened automatically</string>
+    <string name="event_closed">Closed automatically</string>
+    <string name="event_already_open">Arrived, door was already open</string>
+    <string name="event_already_closed">Left, door was already closed</string>
+    <string name="event_car_not_connected">Arrived without the car, door left closed</string>
+    <string name="event_cooldown">Skipped, door moved moments ago</string>
+    <string name="event_cancelled">Cancelled from the notification</string>
+    <string name="event_failed">Could not move the door</string>
+
+    <string name="channel_tracking">Arrival and departure tracking</string>
+    <string name="channel_actions">Garage door actions</string>
+    <string name="tracking_arrival">Away: watching for your return</string>
+    <string name="tracking_departure">Checking whether you\'re leaving</string>
+    <string name="countdown_opening">Opening garage in %1$d s</string>
+    <string name="countdown_closing">Closing garage in %1$d s</string>
+    <string name="countdown_cancel">Cancel</string>
+    <string name="result_opened">Garage door opening</string>
+    <string name="result_closed">Garage door closing</string>
+    <string name="result_cancelled">Garage door command cancelled</string>
+    <string name="result_failed">Couldn\'t move the garage door</string>
+    <string name="result_distance">You were %1$d ft away</string>
+
+    <string name="event_left_open_reminded">Reminded: door left open</string>
+
+    <string name="live_title">Live distance</string>
+    <string name="live_waiting">Getting a GPS fix…</string>
+    <string name="live_distance">%1$d ft (±%2$d ft)</string>
+    <string name="live_explanation">Measured every 2 seconds while this screen is open. Readings here count toward hands-free too.</string>
+
+    <string name="left_open_settings_title">If the door is left open</string>
+    <string name="left_open_settings_detail">Works on its own, even with hands-free off and the app closed.</string>
+    <string name="left_open_off">Off</string>
+    <string name="left_open_remind">Remind me</string>
+    <string name="left_open_auto_close">Close it</string>
+    <string name="left_open_after_minutes">After %1$d min open</string>
+    <string name="left_open_timing_note">Timed from when the door actually opened, even with the app closed. The app asks myQ at least this often, so doors opened with the wall button or remote are caught on time too.</string>
+    <string name="channel_left_open">Door left open</string>
+    <string name="left_open_title">Garage door is still open</string>
+    <string name="left_open_body">Open for at least %1$d min</string>
+    <string name="left_open_close">Close</string>
+    <string name="left_open_ignore">Ignore</string>
+    <string name="left_open_autoclosed_title">Garage door closed</string>
+    <string name="left_open_autoclosed_body">It was left open, so it was closed automatically.</string>
+
+    <string name="diagnostics_title">Diagnostics</string>
+    <string name="diagnostics_empty">No diagnostics yet. Wake-ups, tracking sessions and retries will appear here.</string>
+    <string name="diagnostics_share">Share</string>
+    <string name="diagnostics_clear">Clear logs</string>
+    <string name="clear_logs_title">Clear all logs?</string>
+    <string name="clear_logs_body">Empties both the Activity log and Diagnostics so the next test starts fresh. Share Diagnostics first if anything in it is still needed.</string>
+    <string name="clear_logs_confirm">Clear</string>
+    <string name="clear_logs_keep">Keep</string>
+    <string name="retry_open_now">Open now</string>
+    <string name="retry_close_now">Close now</string>
 </resources>

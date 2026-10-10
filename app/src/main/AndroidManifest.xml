@@ -4,6 +4,14 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <queries>
         <intent>
@@ -41,5 +49,44 @@
                 <data android:scheme="com.myqops" android:host="android" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".automation.PresenceTrackingService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
+
+        <receiver
+            android:name=".automation.GeofenceTransitionReceiver"
+            android:exported="false" />
+        <receiver
+            android:name=".automation.ActivityTransitionReceiver"
+            android:exported="false" />
+        <receiver
+            android:name=".automation.CountdownCancelReceiver"
+            android:exported="false" />
+        <receiver
+            android:name=".automation.LeftOpenNotificationReceiver"
+            android:exported="false" />
+        <receiver
+            android:name=".automation.DoorCommandActionReceiver"
+            android:exported="false" />
+        <receiver
+            android:name=".automation.AutomationRestoreReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+        <!-- Exported because ACL broadcasts come from the Bluetooth stack's process, not ours. -->
+        <receiver
+            android:name=".automation.CarBluetoothReceiver"
+            android:exported="true"
+            android:permission="android.permission.BLUETOOTH_CONNECT">
+            <intent-filter>
+                <action android:name="android.bluetooth.device.action.ACL_CONNECTED" />
+                <action android:name="android.bluetooth.device.action.ACL_DISCONNECTED" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

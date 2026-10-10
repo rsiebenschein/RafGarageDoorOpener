@@ -1,8 +1,12 @@
 package com.raf.garagedoor.geofence
 
+import kotlin.math.roundToInt
+
 private const val METERS_PER_FOOT = 0.3048
 
 fun feetToMeters(feet: Int): Double = feet * METERS_PER_FOOT
+
+fun metersToFeet(meters: Double): Int = (meters / METERS_PER_FOOT).roundToInt()
 
 data class GeoPoint(val latitude: Double, val longitude: Double)
 
