@@ -1,0 +1,4 @@
+<resources>
+    <style name="Theme.RafsGarage" parent="android:Theme.Material.NoActionBar" />
+    <color name="launcher_background">#FF0E2A47</color>
+</resources>

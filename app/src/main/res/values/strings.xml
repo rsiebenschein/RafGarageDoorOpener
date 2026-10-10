@@ -1,0 +1,34 @@
+<resources>
+    <string name="app_name">Raf\'s Garage</string>
+
+    <string name="sign_in_title">Connect your myQ account</string>
+    <string name="sign_in_body">You\'ll sign in on myQ\'s own page, with Google or email. Raf\'s Garage never sees your password.</string>
+    <string name="sign_in_chooser_hint">If Android asks which app should open the myQ link, choose Raf\'s Garage.</string>
+    <string name="sign_in_button">Sign in with myQ</string>
+    <string name="sign_in_completing">Finishing sign-in…</string>
+
+    <string name="action_refresh">Refresh</string>
+    <string name="action_more">More options</string>
+    <string name="action_sign_out">Sign out</string>
+
+    <string name="doors_empty">No garage doors were found on this myQ account.</string>
+    <string name="door_offline">Offline</string>
+    <string name="door_online">Online</string>
+    <string name="door_command_open">Open</string>
+    <string name="door_command_close">Close</string>
+    <string name="door_command_moving">Moving…</string>
+
+    <string name="door_state_open">Open</string>
+    <string name="door_state_closed">Closed</string>
+    <string name="door_state_opening">Opening</string>
+    <string name="door_state_closing">Closing</string>
+    <string name="door_state_stopped">Stopped</string>
+    <string name="door_state_moving">Moving</string>
+    <string name="door_state_unknown">Unknown</string>
+
+    <string name="elapsed_just_now">just now</string>
+    <string name="elapsed_minutes">%1$d min ago</string>
+    <string name="elapsed_hours">%1$d h ago</string>
+    <string name="elapsed_days">%1$d days ago</string>
+    <string name="door_state_with_elapsed">%1$s · %2$s</string>
+</resources>

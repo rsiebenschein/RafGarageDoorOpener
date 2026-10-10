@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- House outline with a paneled garage door, centered in the 66dp adaptive-icon safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M54,28 L80,44 L80,78 L28,78 L28,44 Z" />
+    <path
+        android:fillColor="#FF0E2A47"
+        android:pathData="M36,50 L72,50 L72,78 L36,78 Z" />
+    <path
+        android:fillColor="#FF4FA3F7"
+        android:pathData="M38,52 L70,52 L70,57 L38,57 Z M38,59 L70,59 L70,64 L38,64 Z M38,66 L70,66 L70,71 L38,71 Z M38,73 L70,73 L70,78 L38,78 Z" />
+</vector>
