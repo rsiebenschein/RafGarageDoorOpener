@@ -2,6 +2,7 @@ plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
   alias(libs.plugins.kotlin.serialization)
+  alias(libs.plugins.secrets)
 }
 
 android {
@@ -26,7 +27,16 @@ android {
     sourceCompatibility = JavaVersion.VERSION_17
     targetCompatibility = JavaVersion.VERSION_17
   }
-  buildFeatures { compose = true }
+  buildFeatures {
+    compose = true
+    buildConfig = true
+  }
+}
+
+// MAPS_API_KEY comes from the gitignored .env; .env.example supplies a placeholder so builds never fail.
+secrets {
+  propertiesFileName = ".env"
+  defaultPropertiesFileName = ".env.example"
 }
 
 dependencies {
@@ -43,8 +53,11 @@ dependencies {
   implementation(libs.androidx.lifecycle.runtime.compose)
   implementation(libs.androidx.lifecycle.viewmodel.compose)
   implementation(libs.kotlinx.coroutines.android)
+  implementation(libs.kotlinx.coroutines.play.services)
   implementation(libs.kotlinx.serialization.json)
+  implementation(libs.maps.compose)
   implementation(libs.okhttp)
+  implementation(libs.play.services.location)
   testImplementation(libs.junit)
   testImplementation(libs.kotlinx.coroutines.test)
   testImplementation(libs.okhttp.mockwebserver)

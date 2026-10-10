@@ -2,6 +2,10 @@ package com.raf.garagedoor
 
 import android.content.Context
 import com.raf.garagedoor.door.GarageDoorController
+import com.raf.garagedoor.geofence.DataStoreGeofenceSettingsRepository
+import com.raf.garagedoor.geofence.GeofenceSettingsRepository
+import com.raf.garagedoor.location.CurrentLocationProvider
+import com.raf.garagedoor.location.FusedCurrentLocationProvider
 import com.raf.garagedoor.myq.MyQGarageDoorController
 import com.raf.garagedoor.myq.api.MyQDeviceApi
 import com.raf.garagedoor.myq.auth.AppCheckTokenMinter
@@ -37,6 +41,10 @@ class AppContainer(context: Context) {
 
     val garageDoorController: GarageDoorController =
         MyQGarageDoorController(MyQDeviceApi(config, http, headers, myQSession))
+
+    val geofenceSettings: GeofenceSettingsRepository = DataStoreGeofenceSettingsRepository(context)
+
+    val currentLocationProvider: CurrentLocationProvider = FusedCurrentLocationProvider(context)
 
     private companion object {
         const val HTTP_CALL_TIMEOUT_SECONDS = 30L

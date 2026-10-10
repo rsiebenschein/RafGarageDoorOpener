@@ -14,6 +14,19 @@ export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
 ./gradlew installDebug           # phone connected with USB debugging enabled
 ```
 
+## Google Maps key
+
+The garage-location map needs a Maps SDK for Android key in a gitignored `.env` file:
+
+```sh
+echo 'MAPS_API_KEY=your-key-here' > .env
+```
+
+Create it in Google Cloud Console (APIs & Services): enable **Maps SDK for Android**, create an
+API key, and restrict it to Android apps with package `com.raf.garagedoor` plus the SHA-1 of the
+signing keystore (`keytool -list -v -keystore ~/.android/debug.keystore -storepass android` for
+debug builds). Without a key the app still builds; the map just stays blank.
+
 ## Signing in
 
 The app opens myQ's own sign-in page in a Chrome tab (Google sign-in refuses embedded web views).
@@ -35,6 +48,6 @@ replace the myQ cloud without touching the UI.
 ## Roadmap
 
 1. Manual control: sign-in, door status, open/close ✅
-2. Geofence editor: map pin plus adjustable radius in feet
+2. Geofence editor: map pin plus adjustable open/close radius in feet ✅
 3. Auto-open on arrival and auto-close on departure, with safeguards and an activity log
 4. Home-screen widget and Quick Settings tile

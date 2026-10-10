@@ -10,6 +10,7 @@
     <string name="action_refresh">Refresh</string>
     <string name="action_more">More options</string>
     <string name="action_sign_out">Sign out</string>
+    <string name="action_back">Back</string>
 
     <string name="doors_empty">No garage doors were found on this myQ account.</string>
     <string name="door_offline">Offline</string>
@@ -31,4 +32,25 @@
     <string name="elapsed_hours">%1$d h ago</string>
     <string name="elapsed_days">%1$d days ago</string>
     <string name="door_state_with_elapsed">%1$s · %2$s</string>
+
+    <string name="geofence_title">Garage location</string>
+    <string name="geofence_satellite">Satellite</string>
+    <string name="geofence_marker_title">Garage</string>
+    <string name="geofence_tap_hint">Tap the map where your garage door is.</string>
+    <string name="geofence_open_radius">Open within %1$d ft</string>
+    <string name="geofence_close_radius">Close beyond %1$d ft</string>
+    <string name="geofence_radius_detail">%1$d ft across · %2$d m</string>
+    <string name="geofence_latency_hint">The door takes about 15 seconds to open, so a larger open radius means it\'s already up when you pull in.</string>
+    <string name="geofence_use_my_location">My location</string>
+    <string name="geofence_save">Save</string>
+    <string name="geofence_saved">Garage location saved</string>
+    <string name="geofence_location_unavailable">Couldn\'t get your location. Try again with a clear view of the sky.</string>
+    <string name="geofence_location_permission_denied">Allow location access to center the map on you.</string>
+
+    <string name="automation_card_title">Auto open &amp; close</string>
+    <string name="automation_card_not_set_up">Place your garage on the map and choose how close you need to be for the door to open.</string>
+    <string name="automation_card_summary">Opens within %1$d ft · closes beyond %2$d ft</string>
+    <string name="automation_card_next_step">Location saved. Hands-free opening and closing will be switched on in the next update.</string>
+    <string name="automation_card_set_up">Set up</string>
+    <string name="automation_card_edit">Edit location</string>
 </resources>

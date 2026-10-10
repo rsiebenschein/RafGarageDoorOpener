@@ -38,13 +38,21 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.raf.garagedoor.R
 import com.raf.garagedoor.door.GarageDoor
+import com.raf.garagedoor.geofence.GarageGeofence
+import com.raf.garagedoor.ui.geofence.AutomationSummaryCard
 import kotlinx.coroutines.delay
 import java.time.Instant
 
 private const val ELAPSED_LABEL_REFRESH_MILLIS = 30_000L
+private const val AUTOMATION_CARD_KEY = "automation"
 
 @Composable
-fun DoorRoute(onSignOut: () -> Unit, viewModel: DoorViewModel = viewModel(factory = DoorViewModel.Factory)) {
+fun DoorRoute(
+    geofence: GarageGeofence?,
+    onEditGeofence: () -> Unit,
+    onSignOut: () -> Unit,
+    viewModel: DoorViewModel = viewModel(factory = DoorViewModel.Factory),
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     LifecycleResumeEffect(viewModel) {
         viewModel.startPolling()
@@ -52,6 +60,8 @@ fun DoorRoute(onSignOut: () -> Unit, viewModel: DoorViewModel = viewModel(factor
     }
     DoorScreen(
         state = state,
+        geofence = geofence,
+        onEditGeofence = onEditGeofence,
         onToggle = viewModel::toggle,
         onRefresh = viewModel::refreshNow,
         onDismissError = viewModel::dismissError,
@@ -62,6 +72,8 @@ fun DoorRoute(onSignOut: () -> Unit, viewModel: DoorViewModel = viewModel(factor
 @Composable
 fun DoorScreen(
     state: DoorUiState,
+    geofence: GarageGeofence?,
+    onEditGeofence: () -> Unit,
     onToggle: (GarageDoor) -> Unit,
     onRefresh: () -> Unit,
     onDismissError: () -> Unit,
@@ -77,7 +89,7 @@ fun DoorScreen(
         topBar = { DoorTopBar(onRefresh = onRefresh, onSignOut = onSignOut) },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
-        DoorContent(state = state, onToggle = onToggle, modifier = Modifier.padding(padding))
+        DoorContent(state, geofence, onEditGeofence, onToggle, Modifier.padding(padding))
     }
 }
 
@@ -105,7 +117,13 @@ private fun DoorTopBar(onRefresh: () -> Unit, onSignOut: () -> Unit) {
 }
 
 @Composable
-private fun DoorContent(state: DoorUiState, onToggle: (GarageDoor) -> Unit, modifier: Modifier) {
+private fun DoorContent(
+    state: DoorUiState,
+    geofence: GarageGeofence?,
+    onEditGeofence: () -> Unit,
+    onToggle: (GarageDoor) -> Unit,
+    modifier: Modifier,
+) {
     val now by rememberTickingNow()
     when {
         state.isLoading && state.doors.isEmpty() -> CenteredBox(modifier) { CircularProgressIndicator() }
@@ -120,6 +138,7 @@ private fun DoorContent(state: DoorUiState, onToggle: (GarageDoor) -> Unit, modi
             items(state.doors, key = { it.id.serialNumber }) { door ->
                 DoorCard(door, isCommandPending = state.pendingCommandDoor == door.id, now = now) { onToggle(door) }
             }
+            item(key = AUTOMATION_CARD_KEY) { AutomationSummaryCard(geofence, onEditGeofence) }
         }
     }
 }
