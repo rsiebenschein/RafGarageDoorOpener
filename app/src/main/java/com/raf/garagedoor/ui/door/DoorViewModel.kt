@@ -8,6 +8,7 @@ import com.raf.garagedoor.door.DoorCommand
 import com.raf.garagedoor.door.DoorCommandEvent
 import com.raf.garagedoor.door.DoorId
 import com.raf.garagedoor.door.DoorState
+import com.raf.garagedoor.door.DoorStatusSnapshot
 import com.raf.garagedoor.door.GarageDoor
 import com.raf.garagedoor.door.GarageDoorControlException
 import com.raf.garagedoor.door.GarageDoorController
@@ -37,6 +38,7 @@ class DoorViewModel(
     private val controller: GarageDoorController,
     private val clock: Clock,
     commandEvents: Flow<DoorCommandEvent> = emptyFlow(),
+    private val currentSnapshot: suspend () -> DoorStatusSnapshot = { DoorStatusSnapshot() },
     private val onCommandAccepted: suspend (DoorCommand) -> Unit = {},
 ) : ViewModel() {
 
@@ -91,11 +93,17 @@ class DoorViewModel(
 
     private suspend fun refreshDoors() {
         try {
-            val doors = controller.listDoors()
+            val doors = withMovementShown(controller.listDoors(), currentSnapshot())
             mutableState.update { it.copy(doors = doors, isLoading = false) }
         } catch (error: GarageDoorControlException) {
             showError(error)
         }
+    }
+
+    /** A command sent from anywhere (widget, notification) stays visible while myQ still reports the old state. */
+    private fun withMovementShown(doors: List<GarageDoor>, snapshot: DoorStatusSnapshot): List<GarageDoor> {
+        val moving = snapshot.displayState(clock.instant())?.takeIf { it.isMoving } ?: return doors
+        return doors.mapIndexed { index, door -> if (index == 0) door.copy(state = moving) else door }
     }
 
     private suspend fun sendCommand(doorId: DoorId, command: DoorCommand) {
@@ -133,7 +141,12 @@ class DoorViewModel(
         val Factory = viewModelFactory {
             initializer {
                 val container = appContainer()
-                DoorViewModel(container.garageDoorController, container.clock, container.doorCommandEvents.events) { command ->
+                DoorViewModel(
+                    controller = container.garageDoorController,
+                    clock = container.clock,
+                    commandEvents = container.doorCommandEvents.events,
+                    currentSnapshot = container.doorStatusSnapshots::current,
+                ) { command ->
                     container.departureOnDoorOpen.onCommandAccepted(command)
                     container.leftOpenCheckScheduler.onCommandAccepted(command)
                 }

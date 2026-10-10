@@ -3,31 +3,32 @@ package com.raf.garagedoor
 import android.content.Context
 import com.raf.garagedoor.automation.ActivityLogRepository
 import com.raf.garagedoor.automation.AutomationCoordinator
-import com.raf.garagedoor.automation.BackgroundDoorCommands
 import com.raf.garagedoor.automation.AutomationNotifications
 import com.raf.garagedoor.automation.AutomationPermissions
 import com.raf.garagedoor.automation.AutomationRegistrar
 import com.raf.garagedoor.automation.AutomationSettingsRepository
+import com.raf.garagedoor.automation.BackgroundDoorCommands
 import com.raf.garagedoor.automation.CommandCountdown
 import com.raf.garagedoor.automation.DataStoreActivityLogRepository
 import com.raf.garagedoor.automation.DataStoreAutomationSettingsRepository
 import com.raf.garagedoor.automation.DataStoreDiagnosticsLog
+import com.raf.garagedoor.automation.DataStorePresenceRepository
+import com.raf.garagedoor.automation.DepartureOnDoorOpen
 import com.raf.garagedoor.automation.DiagnosticsLog
+import com.raf.garagedoor.automation.DoorAutomationExecutor
+import com.raf.garagedoor.automation.PresenceRepository
+import com.raf.garagedoor.automation.PresenceTracker
 import com.raf.garagedoor.automation.leftopen.DataStoreLeftOpenStateRepository
 import com.raf.garagedoor.automation.leftopen.LeftOpenCheckScheduler
 import com.raf.garagedoor.automation.leftopen.LeftOpenMonitor
 import com.raf.garagedoor.automation.leftopen.LeftOpenStateRepository
-import com.raf.garagedoor.automation.DataStorePresenceRepository
-import com.raf.garagedoor.automation.DepartureOnDoorOpen
-import com.raf.garagedoor.automation.DoorAutomationExecutor
-import com.raf.garagedoor.automation.PresenceRepository
-import com.raf.garagedoor.automation.PresenceTracker
 import com.raf.garagedoor.bluetooth.CarConnectionRepository
 import com.raf.garagedoor.bluetooth.DataStoreCarConnectionRepository
 import com.raf.garagedoor.bluetooth.PairedBluetoothDevices
 import com.raf.garagedoor.door.DoorCommandEvents
-import com.raf.garagedoor.door.ObservedDoorController
+import com.raf.garagedoor.door.DoorStatusSnapshotStore
 import com.raf.garagedoor.door.GarageDoorController
+import com.raf.garagedoor.door.ObservedDoorController
 import com.raf.garagedoor.door.TransientRetry
 import com.raf.garagedoor.geofence.DataStoreGeofenceSettingsRepository
 import com.raf.garagedoor.geofence.GeofenceSettingsRepository
@@ -45,16 +46,15 @@ import com.raf.garagedoor.myq.http.MyQHttpExecutor
 import com.raf.garagedoor.myq.http.MyQRequestHeaders
 import com.raf.garagedoor.storage.EncryptedTokenStore
 import com.raf.garagedoor.storage.KeystoreCipher
-import com.raf.garagedoor.widget.WidgetDoorStatusStore
 import com.raf.garagedoor.widget.WidgetDoorToggle
 import com.raf.garagedoor.widget.WidgetUpdater
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import okhttp3.OkHttpClient
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
+import okhttp3.OkHttpClient
 
 /** Manual dependency graph; small enough that a DI framework would add more than it saves. */
 class AppContainer(context: Context) {
@@ -87,9 +87,9 @@ class AppContainer(context: Context) {
     /** Every accepted command, from any sender, so a visible door screen shows the movement at once. */
     val doorCommandEvents = DoorCommandEvents()
 
-    val widgetDoorStatus = WidgetDoorStatusStore(context)
+    val doorStatusSnapshots = DoorStatusSnapshotStore(context)
 
-    val widgetUpdater = WidgetUpdater(context.applicationContext, widgetDoorStatus, clock)
+    val widgetUpdater = WidgetUpdater(context.applicationContext, doorStatusSnapshots, clock)
 
     val garageDoorController: GarageDoorController = ObservedDoorController(
         MyQGarageDoorController(MyQDeviceApi(config, http, headers, myQSession)),
@@ -163,7 +163,7 @@ class AppContainer(context: Context) {
 
     val widgetDoorToggle = WidgetDoorToggle(
         context = context.applicationContext,
-        store = widgetDoorStatus,
+        store = doorStatusSnapshots,
         updater = widgetUpdater,
         departureOnDoorOpen = departureOnDoorOpen,
         leftOpenChecks = leftOpenCheckScheduler,

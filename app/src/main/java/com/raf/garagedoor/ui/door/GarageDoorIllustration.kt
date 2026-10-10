@@ -1,12 +1,13 @@
 package com.raf.garagedoor.ui.door
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -22,17 +23,26 @@ private const val PANEL_COUNT = 4
 private const val MOVING_ANIMATION_MILLIS = 12_000
 private const val SETTLE_ANIMATION_MILLIS = 600
 
-/** House with a sectional door that rolls up as it opens; travel is animated at roughly real door speed. */
+/**
+ * House with a sectional door that rolls up as it opens; travel is animated at roughly real door
+ * speed. A door first shown mid-move (e.g. the app opened while the widget closes it) starts from
+ * the far end, so the movement is still visible.
+ */
 @Composable
 fun GarageDoorIllustration(state: DoorState, modifier: Modifier = Modifier) {
-    val duration = if (state.isMoving) MOVING_ANIMATION_MILLIS else SETTLE_ANIMATION_MILLIS
-    val openFraction by animateFloatAsState(
-        targetValue = openFractionFor(state),
-        animationSpec = tween(durationMillis = duration, easing = LinearEasing),
-        label = "doorOpenFraction",
-    )
+    val openFraction = remember { Animatable(startFractionFor(state)) }
+    LaunchedEffect(state) {
+        val duration = if (state.isMoving) MOVING_ANIMATION_MILLIS else SETTLE_ANIMATION_MILLIS
+        openFraction.animateTo(openFractionFor(state), tween(durationMillis = duration, easing = LinearEasing))
+    }
     val palette = LocalGaragePalette.current
-    Canvas(modifier.aspectRatio(1f)) { drawGarage(openFraction, palette) }
+    Canvas(modifier.aspectRatio(1f)) { drawGarage(openFraction.value, palette) }
+}
+
+private fun startFractionFor(state: DoorState): Float = when (state) {
+    DoorState.CLOSING -> 1f
+    DoorState.OPENING -> 0f
+    else -> openFractionFor(state)
 }
 
 private fun openFractionFor(state: DoorState): Float = when (state) {

@@ -40,6 +40,7 @@ import androidx.glance.unit.ColorProvider
 import com.raf.garagedoor.GarageApplication
 import com.raf.garagedoor.MainActivity
 import com.raf.garagedoor.R
+import com.raf.garagedoor.door.DoorStatusSnapshot
 import java.time.Instant
 
 /**
@@ -52,7 +53,7 @@ class GarageDoorWidget : GlanceAppWidget() {
     override val sizeMode = SizeMode.Responsive(setOf(COMPACT_SIZE, WIDE_SIZE))
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val store = (context.applicationContext as GarageApplication).container.widgetDoorStatus
+        val store = (context.applicationContext as GarageApplication).container.doorStatusSnapshots
         val initial = store.current()
         provideContent {
             val status by store.status.collectAsState(initial)
@@ -77,7 +78,7 @@ class GarageDoorWidgetReceiver : GlanceAppWidgetReceiver() {
 }
 
 @Composable
-private fun WidgetContent(status: WidgetDoorStatus, now: Instant) {
+private fun WidgetContent(status: DoorStatusSnapshot, now: Instant) {
     val look = WidgetLook.of(LocalContext.current, status, now)
     val toggle = actionRunCallback<ToggleDoorAction>()
     if (LocalSize.current.width < GarageDoorWidget.WIDE_SIZE.width) CompactWidget(look, toggle) else WideWidget(look, toggle)

@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.Color
 import com.raf.garagedoor.R
 import com.raf.garagedoor.door.DoorCommand
 import com.raf.garagedoor.door.DoorState
+import com.raf.garagedoor.door.DoorStatusSnapshot
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -15,7 +16,7 @@ import java.time.format.FormatStyle
 data class WidgetLook(val color: Color, val shortLabel: String, val detailLabel: String, val actionLabel: String) {
 
     companion object {
-        fun of(context: Context, status: WidgetDoorStatus, now: Instant): WidgetLook {
+        fun of(context: Context, status: DoorStatusSnapshot, now: Instant): WidgetLook {
             val state = status.displayState(now)
             val command = state?.toggleCommand
             val isConfirming = command != null && status.isAwaitingConfirm(command, now)

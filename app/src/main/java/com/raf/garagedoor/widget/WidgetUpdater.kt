@@ -3,11 +3,12 @@ package com.raf.garagedoor.widget
 import android.content.Context
 import androidx.glance.appwidget.updateAll
 import com.raf.garagedoor.door.DoorCommandEvent
+import com.raf.garagedoor.door.DoorStatusSnapshotStore
 import com.raf.garagedoor.door.GarageDoor
 import java.time.Clock
 
 /** Feeds every myQ status and accepted command into the widget, redrawing only when something changed. */
-class WidgetUpdater(private val context: Context, private val store: WidgetDoorStatusStore, private val clock: Clock) {
+class WidgetUpdater(private val context: Context, private val store: DoorStatusSnapshotStore, private val clock: Clock) {
 
     suspend fun onDoorsListed(doors: List<GarageDoor>) {
         val door = doors.firstOrNull() ?: return

@@ -185,6 +185,17 @@ departure so short trips inside the wake-up zone are watched on the way back.
 
 ---
 
+## Observations outside the ride tests
+
+- **2026-10-10, widget close:** while the widget showed "Closing…", the app showed "Open · just
+  now" until the door was fully closed. The app was only trusting myQ, and this door's myQ status
+  (virtual opener with a separate door sensor) appears to go straight from "open" to "closed"
+  without reporting "closing". Fix: the movement overlay is now a shared
+  `DoorStatusSnapshot` used by both the widget and the app screen, so any accepted command shows
+  as moving in both until myQ reports the new state (or 90 s pass).
+- **2026-10-10, widget second tap ignored:** Android delivers a widget's taps one at a time, so a
+  tap callback must never wait; the 4 s "Tap again" expiry runs in the application scope.
+
 ## Open risks and ideas not yet tried
 
 - **Do not rely on geofences for arrival.** Test 3 proved they are checked only every 30-40

@@ -5,6 +5,8 @@ import com.raf.garagedoor.automation.DepartureOnDoorOpen
 import com.raf.garagedoor.automation.DoorCommandWorker
 import com.raf.garagedoor.automation.leftopen.LeftOpenCheckScheduler
 import com.raf.garagedoor.door.DoorCommand
+import com.raf.garagedoor.door.DoorStatusSnapshot
+import com.raf.garagedoor.door.DoorStatusSnapshotStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -18,7 +20,7 @@ import java.time.Instant
  */
 class WidgetDoorToggle(
     private val context: Context,
-    private val store: WidgetDoorStatusStore,
+    private val store: DoorStatusSnapshotStore,
     private val updater: WidgetUpdater,
     private val departureOnDoorOpen: DepartureOnDoorOpen,
     private val leftOpenChecks: LeftOpenCheckScheduler,
@@ -51,8 +53,8 @@ class WidgetDoorToggle(
      * Runs outside the tap: Android delivers a widget's taps one at a time, so waiting inside the
      * tap would hold back the confirming second tap until the window had already closed.
      */
-    private suspend fun clearConfirmationWhenExpired(asking: WidgetDoorStatus) {
-        delay(WidgetDoorStatus.CONFIRM_WINDOW.toMillis())
+    private suspend fun clearConfirmationWhenExpired(asking: DoorStatusSnapshot) {
+        delay(DoorStatusSnapshot.CONFIRM_WINDOW.toMillis())
         val expired = store.update { if (it.confirmUntil == asking.confirmUntil) it.withoutConfirm() else it }
         if (expired) updater.redraw()
     }

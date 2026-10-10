@@ -1,4 +1,4 @@
-package com.raf.garagedoor.widget
+package com.raf.garagedoor.door
 
 import android.content.Context
 import androidx.datastore.core.DataStore
@@ -9,8 +9,6 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import com.raf.garagedoor.door.DoorCommand
-import com.raf.garagedoor.door.DoorState
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
@@ -18,21 +16,21 @@ import kotlinx.coroutines.flow.map
 import java.io.IOException
 import java.time.Instant
 
-private val Context.widgetDoorDataStore: DataStore<Preferences> by preferencesDataStore(name = "widget_door_status")
+private val Context.doorStatusDataStore: DataStore<Preferences> by preferencesDataStore(name = "door_status_snapshot")
 
-/** The widget's [WidgetDoorStatus], kept on disk because the widget is drawn while the app is not running. */
-class WidgetDoorStatusStore(context: Context) {
+/** The shared [DoorStatusSnapshot], kept on disk because the widget is drawn while the app is not running. */
+class DoorStatusSnapshotStore(context: Context) {
 
-    private val dataStore = context.applicationContext.widgetDoorDataStore
+    private val dataStore = context.applicationContext.doorStatusDataStore
 
-    val status: Flow<WidgetDoorStatus> = dataStore.data
+    val status: Flow<DoorStatusSnapshot> = dataStore.data
         .catch { error -> if (error is IOException) emit(emptyPreferences()) else throw error }
         .map(::toStatus)
 
-    suspend fun current(): WidgetDoorStatus = status.first()
+    suspend fun current(): DoorStatusSnapshot = status.first()
 
     /** Applies [transform] atomically; returns whether anything changed. */
-    suspend fun update(transform: (WidgetDoorStatus) -> WidgetDoorStatus): Boolean {
+    suspend fun update(transform: (DoorStatusSnapshot) -> DoorStatusSnapshot): Boolean {
         var changed = false
         dataStore.edit { preferences ->
             val before = toStatus(preferences)
@@ -43,7 +41,7 @@ class WidgetDoorStatusStore(context: Context) {
         return changed
     }
 
-    private fun toStatus(preferences: Preferences) = WidgetDoorStatus(
+    private fun toStatus(preferences: Preferences) = DoorStatusSnapshot(
         state = preferences[STATE]?.let { name -> DoorState.entries.firstOrNull { it.name == name } },
         lastChanged = preferences[LAST_CHANGED]?.let(Instant::ofEpochMilli),
         movement = preferences[MOVEMENT]?.let(::commandNamed),
@@ -52,7 +50,7 @@ class WidgetDoorStatusStore(context: Context) {
         confirmUntil = preferences[CONFIRM_UNTIL]?.let(Instant::ofEpochMilli),
     )
 
-    private fun write(preferences: MutablePreferences, status: WidgetDoorStatus) {
+    private fun write(preferences: MutablePreferences, status: DoorStatusSnapshot) {
         preferences.putOrRemove(STATE, status.state?.name)
         preferences.putOrRemove(LAST_CHANGED, status.lastChanged?.toEpochMilli())
         preferences.putOrRemove(MOVEMENT, status.movement?.name)

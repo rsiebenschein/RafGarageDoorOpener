@@ -1,19 +1,15 @@
-package com.raf.garagedoor.widget
+package com.raf.garagedoor.door
 
-import com.raf.garagedoor.door.DoorCommand
-import com.raf.garagedoor.door.DoorId
-import com.raf.garagedoor.door.DoorState
-import com.raf.garagedoor.door.GarageDoor
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant
 
-class WidgetDoorStatusTest {
+class DoorStatusSnapshotTest {
 
     private val now = Instant.parse("2026-10-10T22:00:00Z")
-    private val open = WidgetDoorStatus(state = DoorState.OPEN)
+    private val open = DoorStatusSnapshot(state = DoorState.OPEN)
 
     @Test
     fun confirmation_lastsOnlyForTheWindow() {
