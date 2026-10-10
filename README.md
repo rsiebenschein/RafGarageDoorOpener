@@ -3,6 +3,7 @@
 Personal Android app (built for a Galaxy S23 Ultra) for a Chamberlain myQ garage door:
 
 - Live open/closed status and one-tap open/close
+- **Home-screen widget** (1x1 up to a 4x1 strip) with status and a tap-twice open/close button
 - **Hands-free**: opens the door as you arrive and closes it after you leave
 - **Left-open monitor**: reminds you, or closes the door, when it has been open too long
 
@@ -63,6 +64,22 @@ The app keeps track of whether you are **Home** or **Away**:
   attempts fail, a notification offers **Open now** / **Close now**.
 - With a countdown set, a notification lets you cancel. For opening, the countdown starts early
   based on your speed, so the door still begins moving at your radius.
+
+### Home-screen widget
+
+Long-press the home screen → **Widgets** → **Raf's Garage** → drag **Garage door** onto a screen.
+It starts at 1x1; long-press it and drag the handles to widen it up to a 4x1 strip.
+
+- **1x1**: garage icon colored by state (green closed, amber open, blue moving) and one word.
+  Tapping anywhere toggles the door.
+- **2x1 and wider**: also shows when the state last changed ("Open since 5:32 PM") and a separate
+  Open/Close button; tapping the rest opens the app.
+- **Tap twice**: the first tap shows "Tap again" for 4 seconds; the second sends the command, so
+  a stray touch cannot move the door. No unlock or app launch needed.
+- Opening from the widget starts the departure check and left-open timer, like the app button.
+- **Freshness**: the widget updates whenever the app talks to myQ (every command, the left-open
+  check every few minutes, the app screen), every 3 seconds while the door moves after a
+  command, and every 30 minutes otherwise. A wall-button change can take a few minutes to show.
 
 ### Car Bluetooth (optional)
 
@@ -171,6 +188,7 @@ board wired to the opener) can replace the myQ cloud without touching the UI or 
 | `automation` | Home/away engine, tracking service, triggers, executor, logs |
 | `automation/leftopen` | Left-open monitor and its background worker |
 | `bluetooth` | Car connection tracking |
+| `widget` | Home-screen widget (Glance), its status snapshot and tap handling |
 | `ui` | Compose screens |
 
 ## Roadmap
@@ -178,4 +196,4 @@ board wired to the opener) can replace the myQ cloud without touching the UI or 
 1. Manual control: sign-in, door status, open/close ✅
 2. Geofence editor: map pin plus adjustable open/close radius in feet ✅
 3. Hands-free open and close, left-open monitor, diagnostics ✅ (field testing)
-4. Home-screen widget and Quick Settings tile
+4. Home-screen widget ✅ (field testing), Quick Settings tile

@@ -8,7 +8,7 @@ import com.raf.garagedoor.door.GarageDoorController
 import com.raf.garagedoor.door.TransientRetry
 import java.time.Clock
 
-/** Door commands issued without the app on screen: notification buttons and the left-open auto-close. */
+/** Door commands issued without the app on screen: notification buttons and the home-screen widget. */
 class BackgroundDoorCommands(
     private val controller: GarageDoorController,
     private val retry: TransientRetry,
@@ -16,22 +16,23 @@ class BackgroundDoorCommands(
     private val alerts: AutomationAlerts,
     private val clock: Clock,
 ) {
-    suspend fun run(command: DoorCommand, reason: String) {
+    suspend fun run(command: DoorCommand, reason: String, showsResult: Boolean = true) {
         try {
             val door = retry.run { controller.listDoors() }.firstOrNull()
                 ?: return recordFailure(command, "No garage door found on the myQ account")
-            if (!isNeeded(command, door)) return record(alreadyThere(command), reason)
+            if (!isNeeded(command, door)) return record(alreadyThere(command), reason, showsResult)
             retry.run { controller.execute(door.id, command) }
-            record(if (command == DoorCommand.OPEN) AutomationEventType.OPENED else AutomationEventType.CLOSED, reason)
+            record(if (command == DoorCommand.OPEN) AutomationEventType.OPENED else AutomationEventType.CLOSED, reason, showsResult)
         } catch (error: GarageDoorControlException) {
             recordFailure(command, error.message)
         }
     }
 
-    private suspend fun record(type: AutomationEventType, reason: String) {
+    private suspend fun record(type: AutomationEventType, reason: String, showsResult: Boolean) {
         val event = AutomationEvent(type, clock.millis(), distanceFeet = null, detail = reason)
         activityLog.record(event)
-        if (type == AutomationEventType.OPENED || type == AutomationEventType.CLOSED) alerts.showResult(event)
+        val isResult = type == AutomationEventType.OPENED || type == AutomationEventType.CLOSED
+        if (showsResult && isResult) alerts.showResult(event)
     }
 
     private suspend fun recordFailure(command: DoorCommand, detail: String?) {

@@ -12,6 +12,14 @@ enum class DoorState {
     UNKNOWN;
 
     val isMoving: Boolean get() = this == OPENING || this == CLOSING || this == MOVING
+
+    /** What one tap on a door control should do in this state; `null` while moving or unknown. */
+    val toggleCommand: DoorCommand?
+        get() = when (this) {
+            CLOSED -> DoorCommand.OPEN
+            OPEN, STOPPED -> DoorCommand.CLOSE
+            else -> null
+        }
 }
 
 enum class DoorCommand {

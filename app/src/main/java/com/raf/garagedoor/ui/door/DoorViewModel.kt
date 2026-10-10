@@ -128,12 +128,7 @@ class DoorViewModel(
         /** Remote closes beep for several seconds before moving, and myQ can lag, so allow plenty. */
         private val FAST_POLL_WINDOW: Duration = Duration.ofSeconds(90)
 
-        fun commandFor(door: GarageDoor): DoorCommand? = when {
-            !door.isOnline -> null
-            door.state == DoorState.CLOSED -> DoorCommand.OPEN
-            door.state == DoorState.OPEN || door.state == DoorState.STOPPED -> DoorCommand.CLOSE
-            else -> null
-        }
+        fun commandFor(door: GarageDoor): DoorCommand? = door.state.toggleCommand.takeIf { door.isOnline }
 
         val Factory = viewModelFactory {
             initializer {

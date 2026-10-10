@@ -23,11 +23,17 @@ class DoorCommandEvents {
     }
 }
 
-/** Wraps a controller so every accepted command is announced through [events]. */
-class AnnouncingDoorController(
+/**
+ * Wraps a controller so every accepted command is announced through [events], and every door list
+ * read from myQ is passed to [onDoorsListed] (the home-screen widget's status source).
+ */
+class ObservedDoorController(
     private val delegate: GarageDoorController,
     private val events: DoorCommandEvents,
-) : GarageDoorController by delegate {
+    private val onDoorsListed: suspend (List<GarageDoor>) -> Unit,
+) : GarageDoorController {
+
+    override suspend fun listDoors(): List<GarageDoor> = delegate.listDoors().also { onDoorsListed(it) }
 
     override suspend fun execute(door: DoorId, command: DoorCommand) {
         delegate.execute(door, command)

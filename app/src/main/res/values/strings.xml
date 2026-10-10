@@ -33,6 +33,18 @@
     <string name="elapsed_days">%1$d days ago</string>
     <string name="door_state_with_elapsed">%1$s · %2$s</string>
 
+    <string name="widget_name">Garage door</string>
+    <string name="widget_description">Door status at a glance, with a tap-twice button to open or close.</string>
+    <string name="widget_door_title">Garage Door</string>
+    <string name="widget_state_unknown">Tap to update</string>
+    <string name="widget_state_moving">%1$s…</string>
+    <string name="widget_state_since">%1$s since %2$s</string>
+    <string name="widget_tap_again">Tap again</string>
+    <string name="widget_action_open">Open</string>
+    <string name="widget_action_close">Close</string>
+    <string name="widget_action_update">Update</string>
+    <string name="widget_action_wait">Wait</string>
+
     <string name="geofence_title">Garage location</string>
     <string name="geofence_satellite">Satellite</string>
     <string name="geofence_marker_title">Garage</string>

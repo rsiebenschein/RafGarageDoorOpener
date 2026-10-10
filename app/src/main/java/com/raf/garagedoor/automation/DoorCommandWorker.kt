@@ -20,19 +20,22 @@ class DoorCommandWorker(context: Context, parameters: WorkerParameters) : Corout
         val command = inputData.getString(KEY_COMMAND)?.let { name -> DoorCommand.entries.firstOrNull { it.name == name } }
             ?: return Result.failure()
         val container = (applicationContext as GarageApplication).container
-        container.backgroundDoorCommands.run(command, inputData.getString(KEY_REASON) ?: DEFAULT_REASON)
+        val showsResult = inputData.getBoolean(KEY_SHOWS_RESULT, true)
+        container.backgroundDoorCommands.run(command, inputData.getString(KEY_REASON) ?: DEFAULT_REASON, showsResult)
         return Result.success()
     }
 
     companion object {
         private const val KEY_COMMAND = "command"
         private const val KEY_REASON = "reason"
+        private const val KEY_SHOWS_RESULT = "shows_result"
         private const val UNIQUE_NAME = "door-command"
         private const val DEFAULT_REASON = "From a notification"
 
-        fun enqueue(context: Context, command: DoorCommand, reason: String) {
+        /** [showsResult] is off for the widget, which shows the outcome itself; failures always notify. */
+        fun enqueue(context: Context, command: DoorCommand, reason: String, showsResult: Boolean = true) {
             val request = OneTimeWorkRequestBuilder<DoorCommandWorker>()
-                .setInputData(workDataOf(KEY_COMMAND to command.name, KEY_REASON to reason))
+                .setInputData(workDataOf(KEY_COMMAND to command.name, KEY_REASON to reason, KEY_SHOWS_RESULT to showsResult))
                 .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
                 .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                 .build()

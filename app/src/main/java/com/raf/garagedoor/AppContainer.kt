@@ -25,8 +25,8 @@ import com.raf.garagedoor.automation.PresenceTracker
 import com.raf.garagedoor.bluetooth.CarConnectionRepository
 import com.raf.garagedoor.bluetooth.DataStoreCarConnectionRepository
 import com.raf.garagedoor.bluetooth.PairedBluetoothDevices
-import com.raf.garagedoor.door.AnnouncingDoorController
 import com.raf.garagedoor.door.DoorCommandEvents
+import com.raf.garagedoor.door.ObservedDoorController
 import com.raf.garagedoor.door.GarageDoorController
 import com.raf.garagedoor.door.TransientRetry
 import com.raf.garagedoor.geofence.DataStoreGeofenceSettingsRepository
@@ -45,13 +45,16 @@ import com.raf.garagedoor.myq.http.MyQHttpExecutor
 import com.raf.garagedoor.myq.http.MyQRequestHeaders
 import com.raf.garagedoor.storage.EncryptedTokenStore
 import com.raf.garagedoor.storage.KeystoreCipher
+import com.raf.garagedoor.widget.WidgetDoorStatusStore
+import com.raf.garagedoor.widget.WidgetDoorToggle
+import com.raf.garagedoor.widget.WidgetUpdater
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import okhttp3.OkHttpClient
 import java.time.Clock
-import java.time.Instant
 import java.time.Duration
+import java.time.Instant
 
 /** Manual dependency graph; small enough that a DI framework would add more than it saves. */
 class AppContainer(context: Context) {
@@ -84,9 +87,14 @@ class AppContainer(context: Context) {
     /** Every accepted command, from any sender, so a visible door screen shows the movement at once. */
     val doorCommandEvents = DoorCommandEvents()
 
-    val garageDoorController: GarageDoorController = AnnouncingDoorController(
+    val widgetDoorStatus = WidgetDoorStatusStore(context)
+
+    val widgetUpdater = WidgetUpdater(context.applicationContext, widgetDoorStatus, clock)
+
+    val garageDoorController: GarageDoorController = ObservedDoorController(
         MyQGarageDoorController(MyQDeviceApi(config, http, headers, myQSession)),
         doorCommandEvents,
+        onDoorsListed = widgetUpdater::onDoorsListed,
     )
 
     val geofenceSettings: GeofenceSettingsRepository = DataStoreGeofenceSettingsRepository(context)
@@ -152,6 +160,15 @@ class AppContainer(context: Context) {
     )
 
     val departureOnDoorOpen = DepartureOnDoorOpen(context.applicationContext, automationSettings, presenceRepository, diagnosticsLog)
+
+    val widgetDoorToggle = WidgetDoorToggle(
+        context = context.applicationContext,
+        store = widgetDoorStatus,
+        updater = widgetUpdater,
+        departureOnDoorOpen = departureOnDoorOpen,
+        leftOpenChecks = leftOpenCheckScheduler,
+        clock = clock,
+    )
 
     val automationCoordinator = AutomationCoordinator(
         context = context.applicationContext,
