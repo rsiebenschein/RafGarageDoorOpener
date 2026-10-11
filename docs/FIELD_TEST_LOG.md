@@ -35,6 +35,65 @@ $ADB shell am get-standby-bucket com.raf.garagedoor       # 5 = exempt
 $ADB shell cmd appops get com.raf.garagedoor | grep -E "LOCATION|RUN_ANY|ACTIVITY"
 ```
 
+Is Power saving on? It changes GPS and background behavior (see test 4):
+
+```sh
+$ADB shell settings get global low_power          # 1 = on
+$ADB shell settings get global low_power_sticky   # 1 = turned on by hand, stays on at any charge
+$ADB shell dumpsys power | grep location_mode     # 1 = GPS off while the screen is off
+$ADB shell dumpsys batterystats --history | grep -m1 power_save   # +power_save = on since unplugged
+```
+
+For what Google Play services did with this app's location requests (which source answered:
+GPS, WIFI or CELL, and when Android held them back as "stationary"):
+
+```sh
+$ADB shell dumpsys activity service com.google.android.gms/com.google.android.location.internal.GoogleLocationManagerService > fused.txt
+```
+
+---
+
+## Test 4: bike ride, 2026-10-10 about 18:17 to 23:09
+
+**Settings:** open within 135 ft, close beyond 200 ft, home fence 492 ft, wake-up zone 3,281 ft,
+left-open *Remind me* after 5 min. **Phone Power saving mode was on** the whole time (turned on
+by hand at some point; it stays on at any battery level, and the phone was at 80% or more).
+
+**What the user saw:** leaving, the close failed while the phone was still on weak home Wi-Fi;
+it worked after the user turned Wi-Fi off. Coming home at about 23:09 the door opened.
+
+**What Diagnostics, the Activity log and Android's logs showed:**
+
+| Time | Event |
+|---|---|
+| 17:41 to 18:00 | 7 re-registrations while testing at home (settings changes); each reset home/away and started a departure check that timed out. Test noise only |
+| 18:01:12 | Opened from the widget. The 5-minute left-open check due at about 18:06 **did not run**; it ran at 18:10:07, 5 s after the screen came on (reminder "Open 8 min") |
+| 18:17:53 | Opened from the widget, departure check started |
+| 18:19:20 | CLOSE decided at 159 ft (±12 ft, screen on) |
+| 18:19:32, 18:19:41 | myQ attempts 1 and 2 failed: DNS "Unable to resolve host" (Wi-Fi connected, no internet) |
+| 18:19:53 | Attempt 3 worked after the user turned Wi-Fi off. Closed 33 s after the decision |
+| 18:19:54 | Away watch started (armed). Cadence stepped 10 s, 30 s, then 2 min at about 7 mi |
+| 18:51:32 | Re-registered while away (geofence settings saved, app open), which **reset home/away and the armed flag**. Re-armed at 18:58 from a ±63 ft Wi-Fi fix |
+| 18:58 to 23:04 | Away watch ran all evening (2 min, then 5 min while farther), 114 fixes in the session |
+| 23:04:47 | Cadence 30 s, then 10 s at 23:07:50, then GPS every 2 s requested at 23:08:38 |
+| 23:08:38 to 23:09:29 | **GPS never turned on.** Only Wi-Fi positions arrived, every 5-7 s. The screen was off from 23:05:26 to 23:09:57 |
+| 23:09:24 | OPEN decided at **45 ft** (±114 ft); door opened 23:09:28. Should have fired near 135 ft |
+| 23:10:03 | GPS fixes started 6 s after the screen came on |
+
+**Root causes:**
+
+1. **Power saving mode turns GPS off while the screen is off** (`location_mode=1`,
+   GPS_DISABLED_WHEN_SCREEN_OFF). No app can override it. The app asked for GPS correctly, but
+   only Wi-Fi positions arrived, so the open fired late. The same mode also held back the
+   left-open check until the screen came on, and restricts background data.
+2. **Weak home Wi-Fi at the edge of range**: connected but no internet (DNS failed). The retry
+   schedule (3 s, 7 s, 15 s, 30 s) eventually worked, but only because the user turned Wi-Fi off.
+3. **Saving geofence settings while away resets home/away**, which also clears the armed flag.
+   It re-armed here only because a good Wi-Fi fix came along; with poor fixes the arrival would
+   not have opened.
+
+**Status:** findings only so far; fixes discussed with the user (see the open risks).
+
 ---
 
 ## Test 3: bike ride, 2026-10-10 about 13:04 to 16:57
@@ -216,5 +275,13 @@ departure so short trips inside the wake-up zone are watched on the way back.
 - **Failed automatic close is not retried later.** If all 5 myQ attempts fail, only the
   notification's **Close now** button remains. A delayed retry would need to check the user is
   still away before closing.
+- **Power saving mode** (test 4) disables GPS with the screen off and defers background checks.
+  Idea: detect it (`PowerManager.isPowerSaveMode`, `locationPowerSaveMode`) and warn on the
+  hands-free screen and in Diagnostics.
+- **Weak Wi-Fi at the edge of range** (tests 3 and 4). Idea: send background myQ commands over
+  mobile data (`ConnectivityManager.requestNetwork` with TRANSPORT_CELLULAR, OkHttp bound to that
+  network's socket factory and DNS), falling back to the default network.
+- **Changing radii while away** resets home/away and disarms (test 4). Idea: keep the armed flag
+  when only the radii change and the user is clearly away.
 - **Force stop** (Settings, App info, Force stop) removes every geofence until the app is opened
   again. Swiping the app away from Recents does not.
