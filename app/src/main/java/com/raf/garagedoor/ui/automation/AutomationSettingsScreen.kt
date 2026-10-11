@@ -47,6 +47,7 @@ class AutomationScreenActions(
     val onCarSelected: (CarBluetoothDevice) -> Unit,
     val onLeftOpenActionChange: (LeftOpenAction) -> Unit,
     val onLeftOpenMinutesChange: (Int) -> Unit,
+    val onUseMobileDataChange: (Boolean) -> Unit,
     val onOpenDiagnostics: () -> Unit,
     val permissionRequests: PermissionRequests,
 )
@@ -78,6 +79,7 @@ fun AutomationSettingsRoute(
         onCarSelected = viewModel::selectCar,
         onLeftOpenActionChange = viewModel::setLeftOpenAction,
         onLeftOpenMinutesChange = viewModel::setLeftOpenMinutes,
+        onUseMobileDataChange = viewModel::setUseMobileData,
         onOpenDiagnostics = onOpenDiagnostics,
         permissionRequests = rememberPermissionRequests(onResult = viewModel::refreshCapabilities),
     )
@@ -119,6 +121,7 @@ private fun AutomationSettingsContent(state: AutomationUiState, liveReading: Liv
         CountdownCard(state.settings, actions.onOpenCountdownChange, actions.onCloseCountdownChange)
         CarBluetoothCard(state, actions)
         LeftOpenCard(state.settings, actions.onLeftOpenActionChange, actions.onLeftOpenMinutesChange)
+        MobileDataCard(state.settings.useMobileData, actions.onUseMobileDataChange)
         OutlinedButton(onClick = actions.onOpenActivityLog, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.activity_log_title))
         }

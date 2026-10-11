@@ -111,6 +111,8 @@ class AutomationViewModel(
 
     fun setLeftOpenMinutes(minutes: Int) = updateSettings { it.copy(leftOpenMinutes = minutes) }
 
+    fun setUseMobileData(enabled: Boolean) = updateSettings { it.copy(useMobileData = enabled) }
+
     /** Starts the next field test from a clean slate, labelled with the build it runs on. */
     fun clearLogs() {
         viewModelScope.launch {

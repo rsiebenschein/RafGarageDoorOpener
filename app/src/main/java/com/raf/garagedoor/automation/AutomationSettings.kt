@@ -29,6 +29,8 @@ data class AutomationSettings(
     val car: CarBluetoothDevice? = null,
     val leftOpenAction: LeftOpenAction = LeftOpenAction.OFF,
     val leftOpenMinutes: Int = LeftOpenLimits.DEFAULT_MINUTES,
+    /** Send myQ requests over mobile data first (never while roaming), with Wi-Fi as the backup. */
+    val useMobileData: Boolean = true,
 )
 
 object CountdownLimits {
@@ -76,6 +78,7 @@ class DataStoreAutomationSettingsRepository(context: Context) : AutomationSettin
             leftOpenAction = preferences[LEFT_OPEN_ACTION]?.let { name -> LeftOpenAction.entries.firstOrNull { it.name == name } }
                 ?: LeftOpenAction.OFF,
             leftOpenMinutes = preferences[LEFT_OPEN_MINUTES] ?: LeftOpenLimits.DEFAULT_MINUTES,
+            useMobileData = preferences[USE_MOBILE_DATA] ?: true,
         )
     }
 
@@ -86,6 +89,7 @@ class DataStoreAutomationSettingsRepository(context: Context) : AutomationSettin
         preferences[REQUIRE_CAR] = settings.requireCarBluetooth
         preferences[LEFT_OPEN_ACTION] = settings.leftOpenAction.name
         preferences[LEFT_OPEN_MINUTES] = settings.leftOpenMinutes.coerceIn(LeftOpenLimits.MIN_MINUTES, LeftOpenLimits.MAX_MINUTES)
+        preferences[USE_MOBILE_DATA] = settings.useMobileData
         settings.car?.let {
             preferences[CAR_ADDRESS] = it.address
             preferences[CAR_NAME] = it.name
@@ -104,5 +108,6 @@ class DataStoreAutomationSettingsRepository(context: Context) : AutomationSettin
         val CAR_NAME = stringPreferencesKey("car_bluetooth_name")
         val LEFT_OPEN_ACTION = stringPreferencesKey("left_open_action")
         val LEFT_OPEN_MINUTES = intPreferencesKey("left_open_minutes")
+        val USE_MOBILE_DATA = booleanPreferencesKey("use_mobile_data")
     }
 }

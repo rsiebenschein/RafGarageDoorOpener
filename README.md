@@ -62,6 +62,10 @@ The app keeps track of whether you are **Home** or **Away**:
 - Automatic myQ commands are retried up to 5 times over about a minute, so a weak Wi-Fi signal or
   a Wi-Fi to cellular handoff at the edge of the property does not lose the command. If all
   attempts fail, a notification offers **Open now** / **Close now**.
+- **Use mobile data for the door** (on by default, in Hands-free settings): every myQ request goes
+  over mobile data even while Wi-Fi is connected, with Wi-Fi as the backup, so weak home Wi-Fi
+  that is connected but has no internet cannot block a command. It is never used while roaming,
+  and a request is only a few KB. Diagnostics records which network myQ is using and why.
 - With a countdown set, a notification lets you cancel. For opening, the countdown starts early
   based on your speed, so the door still begins moving at your radius.
 
@@ -188,6 +192,7 @@ board wired to the opener) can replace the myQ cloud without touching the UI or 
 | `automation` | Home/away engine, tracking service, triggers, executor, logs |
 | `automation/leftopen` | Left-open monitor and its background worker |
 | `bluetooth` | Car connection tracking |
+| `network` | Sending myQ requests over mobile data first, Wi-Fi as backup, never roaming |
 | `widget` | Home-screen widget (Glance), its status snapshot and tap handling |
 | `ui` | Compose screens |
 

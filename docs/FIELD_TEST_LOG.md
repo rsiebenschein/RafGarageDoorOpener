@@ -66,7 +66,7 @@ it worked after the user turned Wi-Fi off. Coming home at about 23:09 the door o
 
 | Time | Event |
 |---|---|
-| 17:41 to 18:00 | 7 re-registrations while testing at home (settings changes); each reset home/away and started a departure check that timed out. Test noise only |
+| 17:41 to 18:00 | 7 re-registrations at home, one per new app build installed (widget work); each started a departure check that timed out. Test noise only |
 | 18:01:12 | Opened from the widget. The 5-minute left-open check due at about 18:06 **did not run**; it ran at 18:10:07, 5 s after the screen came on (reminder "Open 8 min") |
 | 18:17:53 | Opened from the widget, departure check started |
 | 18:19:20 | CLOSE decided at 159 ft (±12 ft, screen on) |
@@ -92,7 +92,23 @@ it worked after the user turned Wi-Fi off. Coming home at about 23:09 the door o
    It re-armed here only because a good Wi-Fi fix came along; with poor fixes the arrival would
    not have opened.
 
-**Status:** findings only so far; fixes discussed with the user (see the open risks).
+**Fixes:**
+
+- The user turned Power saving off. Not something the app can override; a warning in the app is
+  still an open idea.
+- **myQ over mobile data first** (`network/MobileDataFirstRoute`): every myQ request is sent over
+  mobile data even while Wi-Fi is connected, falling back to the default network. Never while
+  roaming (checked before asking, and the network is checked again once it is up). A setting
+  turns it off. Diagnostics logs "myQ requests now go over ..." whenever the route changes.
+  Lesson: Android refuses `requestNetwork` with NET_CAPABILITY_NOT_ROAMING
+  (IllegalArgumentException, which crashed the first build); roaming has to be checked on the
+  network's capabilities after it comes up.
+- Not fixed yet: radius changes while away still reset the armed flag.
+
+**Battery:** Samsung showed the app at 3.9% of battery *use* since the last charge. Android's own
+estimate was about 21 mAh over 5 hours (about 0.4% of a 5,000 mAh battery): wake locks while
+watching (7 mAh), GPS (4.6 mAh, mostly departure checks at home during widget testing), the
+app's own screen time (7 mAh) and CPU (2.3 mAh).
 
 ---
 
@@ -278,9 +294,9 @@ departure so short trips inside the wake-up zone are watched on the way back.
 - **Power saving mode** (test 4) disables GPS with the screen off and defers background checks.
   Idea: detect it (`PowerManager.isPowerSaveMode`, `locationPowerSaveMode`) and warn on the
   hands-free screen and in Diagnostics.
-- **Weak Wi-Fi at the edge of range** (tests 3 and 4). Idea: send background myQ commands over
-  mobile data (`ConnectivityManager.requestNetwork` with TRANSPORT_CELLULAR, OkHttp bound to that
-  network's socket factory and DNS), falling back to the default network.
+- **Weak Wi-Fi at the edge of range** (tests 3 and 4): now sent over mobile data first (see test
+  4). Not yet ride-tested. If cell signal is weak at the door, each call waits up to 5 s before
+  falling back to Wi-Fi.
 - **Changing radii while away** resets home/away and disarms (test 4). Idea: keep the armed flag
   when only the radii change and the user is clearly away.
 - **Force stop** (Settings, App info, Force stop) removes every geofence until the app is opened

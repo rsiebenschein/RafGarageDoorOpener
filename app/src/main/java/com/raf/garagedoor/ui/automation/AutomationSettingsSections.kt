@@ -130,6 +130,20 @@ fun CarBluetoothCard(state: AutomationUiState, actions: AutomationScreenActions)
     }
 }
 
+/** Applies to every myQ request in the app, not just hands-free, so the left-open and widget checks benefit too. */
+@Composable
+fun MobileDataCard(useMobileData: Boolean, onChange: (Boolean) -> Unit) {
+    SettingsCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.mobile_data_title), style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.mobile_data_detail), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Switch(checked = useMobileData, onCheckedChange = onChange)
+        }
+    }
+}
+
 @Composable
 private fun CarPicker(state: AutomationUiState, actions: AutomationScreenActions) {
     if (!state.capabilities.permissions.bluetoothConnect) {

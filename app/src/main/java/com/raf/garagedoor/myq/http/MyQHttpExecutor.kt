@@ -11,14 +11,16 @@ import okhttp3.Request
 import okhttp3.Response
 import java.io.IOException
 
-class MyQHttpExecutor(private val client: OkHttpClient) {
+class MyQHttpExecutor(private val route: MyQHttpRoute) {
+
+    constructor(client: OkHttpClient) : this(DefaultNetworkRoute(client))
 
     suspend fun execute(
         request: Request,
         sessionFailureStatuses: Set<Int> = DEFAULT_SESSION_FAILURE_STATUSES,
     ): String = withContext(Dispatchers.IO) {
         try {
-            client.newCall(request).execute().use { response -> readBody(response, sessionFailureStatuses) }
+            route.call { client -> client.newCall(request).execute().use { response -> readBody(response, sessionFailureStatuses) } }
         } catch (error: IOException) {
             throw MyQNetworkException(error)
         }

@@ -44,6 +44,8 @@ import com.raf.garagedoor.myq.auth.MyQTokenService
 import com.raf.garagedoor.myq.config.MyQApiConfig
 import com.raf.garagedoor.myq.http.MyQHttpExecutor
 import com.raf.garagedoor.myq.http.MyQRequestHeaders
+import com.raf.garagedoor.network.MobileDataFirstRoute
+import com.raf.garagedoor.network.MobileDataNetwork
 import com.raf.garagedoor.storage.EncryptedTokenStore
 import com.raf.garagedoor.storage.KeystoreCipher
 import com.raf.garagedoor.widget.WidgetDoorToggle
@@ -70,10 +72,15 @@ class AppContainer(context: Context) {
     private val headers = MyQRequestHeaders(config)
     /** Short timeouts so a dead network fails fast and the retry policy can try again on the new one. */
     private val http = MyQHttpExecutor(
-        OkHttpClient.Builder()
-            .connectTimeout(Duration.ofSeconds(HTTP_CONNECT_TIMEOUT_SECONDS))
-            .callTimeout(Duration.ofSeconds(HTTP_CALL_TIMEOUT_SECONDS))
-            .build(),
+        MobileDataFirstRoute(
+            defaultClient = OkHttpClient.Builder()
+                .connectTimeout(Duration.ofSeconds(HTTP_CONNECT_TIMEOUT_SECONDS))
+                .callTimeout(Duration.ofSeconds(HTTP_CALL_TIMEOUT_SECONDS))
+                .build(),
+            mobileData = MobileDataNetwork(context),
+            isMobileDataAllowed = { automationSettings.current().useMobileData },
+            record = { message -> diagnosticsLog.record(message) },
+        ),
     )
 
     val myQSession = MyQSession(
