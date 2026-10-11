@@ -136,7 +136,8 @@ minutes. It works with the app closed and hands-free off, and lands on time:
   integration asks every 30 seconds.
 - The open time comes from myQ, so it counts from when the door actually opened. Since a check
   always falls inside the limit, the first check that sees the open door queues one for the exact
-  deadline. Opening from the app or by hands-free queues it straight away. Reminders show
+  deadline. Opening from the app, the widget, a notification, by voice or by hands-free queues it
+straight away. Reminders show
 **Close** and **Ignore**. Ignore silences reminders until the door next closes. Otherwise a
 reminder repeats every 30 minutes while the door stays open.
 
@@ -182,7 +183,12 @@ adb uninstall com.raf.garagedoor.test
    - *Physical activity*
    - *Notifications*
    - *Battery: Unrestricted*, which stops Samsung from putting the app to sleep
+   - **Power saving off** (Settings → Battery → Power saving). While it is on, Android turns GPS
+     off whenever the screen is off and the door opens late; the app shows a red card if it is on.
 5. Turn on **Auto open & close**. Optionally set countdowns, car Bluetooth and the left-open monitor.
+6. Optional: turn on **Voice: "Open / Close garage door"** and allow the microphone **While using
+   the app**. *Use mobile data for the door* is on by default; leave it on unless you want myQ
+   requests to use Wi-Fi only.
 
 ### Google Maps key
 
@@ -223,6 +229,16 @@ Without a key the app still builds; the map is just blank.
 - *"Power saving is on" card on the Hands-free screen*: turn Power saving off. While it is on,
   Android turns GPS off with the screen off and arrivals open late (field test 4). Diagnostics
   also notes it on every tracking session.
+- *Which network myQ used*: Diagnostics logs "myQ requests now go over mobile data" or "... over
+  Wi-Fi (or the phone's default network): reason" whenever it changes, and "myQ over mobile data
+  failed, trying Wi-Fi" on a failure.
+- *Voice does nothing*: check Diagnostics for "Voice: listening". If it never appears, you were
+  not within 500 ft with a fresh reading (hands-free must be on), the microphone permission is
+  missing, or the "Voice command paused" notification needs a tap. If it shows "heard ... not sure
+  enough to act", the confidence was below 0.6.
+- *Battery*: Samsung's per-app percentage is the app's share of the battery *used* since the last
+  charge, not of the whole battery. In field test 4, 3.9% there was about 21 mAh over 5 hours
+  (0.4% of the battery).
 
 ## When myQ changes something
 
@@ -254,4 +270,7 @@ board wired to the opener) can replace the myQ cloud without touching the UI or 
 2. Geofence editor: map pin plus adjustable open/close radius in feet ✅
 3. Hands-free open and close, left-open monitor, diagnostics ✅ (field testing)
 4. Home-screen widget ✅ (field testing), Quick Settings tile
-5. Voice command within 500 ft and lock-screen Open button ✅ (field testing)
+5. Voice open/close within 500 ft, lock-screen Open button, myQ over mobile data ✅ (field testing)
+6. Ideas, not started: Quick Settings tile; wall-button detection without myQ (ratgdo); Tesla
+   (myQ's own Tesla integration, or a browser page with a small server). See the field test log
+   for what was looked into.

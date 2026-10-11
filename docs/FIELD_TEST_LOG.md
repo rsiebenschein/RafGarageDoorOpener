@@ -94,8 +94,9 @@ it worked after the user turned Wi-Fi off. Coming home at about 23:09 the door o
 
 **Fixes:**
 
-- The user turned Power saving off. Not something the app can override; a warning in the app is
-  still an open idea.
+- The user turned Power saving off (Settings, Battery, Power saving). It was set to stay on at
+  any battery level; what turned it on is unknown (the Quick Settings tile, a Modes and Routines
+  rule, or an accepted prompt). The app cannot override it.
 - **myQ over mobile data first** (`network/MobileDataFirstRoute`): every myQ request is sent over
   mobile data even while Wi-Fi is connected, falling back to the default network. Never while
   roaming (checked before asking, and the network is checked again once it is up). A setting
@@ -107,6 +108,19 @@ it worked after the user turned Wi-Fi off. Coming home at about 23:09 the door o
   turning hands-free off and on) does. Diagnostics says "home/away kept" or "home/away reset".
 - A "Power saving is on" card on the Hands-free screen, and a note on every tracking session in
   Diagnostics.
+- New the same day, at the user's request: an **Open garage** button on the away-watch
+  notification (works from the lock screen) and the **voice command** ("Open / Close garage
+  door", only within 500 ft). Every background open (notification, widget, voice) now also starts
+  the left-open timer.
+
+**Not yet verified (check on the next ride):**
+
+- Diagnostics shows "myQ requests now go over mobile data" and the departure close goes through
+  on the first try at the Wi-Fi edge, with Wi-Fi left on.
+- With Power saving off, the return opens near the *Open within* radius, not at the door.
+- The **Open garage** button appears on the lock screen during the away watch.
+- Voice outdoors: Diagnostics shows "Voice: listening" near home, and the confidence of what it
+  heard.
 
 **Battery:** Samsung showed the app at 3.9% of battery *use* since the last charge. Android's own
 estimate was about 21 mAh over 5 hours (about 0.4% of a 5,000 mAh battery): wake locks while
@@ -240,7 +254,8 @@ next to it with the app open.
 now handled correctly ("ARRIVAL request ignored: DEPARTURE session already running").
 **Not yet verified:** a full ride with the app closed and the screen off.
 
-**Lesson:** saving the garage location or radii resets home/away. Do not save just before a test.
+**Lesson:** saving the garage location or radii reset home/away. Do not save just before a test.
+(Since 2026-10-11 only moving the garage pin resets it; radius changes keep it, see test 4.)
 
 ---
 
@@ -284,6 +299,29 @@ departure so short trips inside the wake-up zone are watched on the way back.
   "Is the garage door closed" (heard as "[unk] the garage door close") does nothing. Real voices
   outdoors are untested.
 
+## Ideas looked into but not built (2026-10-11)
+
+Recorded so they are not researched again.
+
+- **Google Assistant / Gemini while the phone is locked**: app shortcuts and App Actions ask the
+  user to unlock first. Google Home voice control would need a cloud-to-cloud smart-home
+  integration (our own server plus account linking), and Google is believed to ask for a PIN to
+  open garage doors by voice (not checked). myQ is believed to have dropped its own Google
+  Assistant support (not checked either). Built the
+  lock-screen **Open garage** button and the in-app voice command instead.
+- **Wake-word engine**: Picovoice Porcupine needs an account and access key and a custom wake word
+  trained in their console. Chose **Vosk** (offline, Apache 2.0, no account) with a grammar of the
+  door phrases; it only runs within 500 ft, so its higher CPU use than a wake-word engine is brief.
+- **Listening all the time at home**: rejected; a TV or a conversation could open the door. The
+  listener needs a location reading from the last 2 minutes within 500 ft.
+- **Tesla**: Tesla does not allow installing third-party apps. Options if wanted later: myQ's own
+  Tesla integration (believed to need a paid myQ subscription; check the car or the myQ app), or a
+  web page for the car's browser backed by a small server of ours (myQ cannot be called from a
+  browser directly, and the myQ sign-in should not live on the car). Meanwhile the phone app
+  already works in the car, with *Only auto-open in my car* matching the Tesla's Bluetooth.
+- **Battery reading**: Samsung's "3.9%" per app is its share of the battery *used*, not of the
+  battery. Use `adb shell dumpsys batterystats` (UID u0a859) for real mAh.
+
 ## Open risks and ideas not yet tried
 
 - **Do not rely on geofences for arrival.** Test 3 proved they are checked only every 30-40
@@ -307,11 +345,18 @@ departure so short trips inside the wake-up zone are watched on the way back.
 - **Power saving mode** (test 4) disables GPS with the screen off and defers background checks.
   The app now warns about it, but cannot override it.
 - **Weak Wi-Fi at the edge of range** (tests 3 and 4): now sent over mobile data first (see test
-  4). Not yet ride-tested. If cell signal is weak at the door, each call waits up to 5 s before
-  falling back to Wi-Fi.
+  4). Not yet ride-tested. If cell signal is weak at the door, a call waits up to 5 s to connect
+  (or 3 s for mobile data to come up) before falling back to Wi-Fi; mobile data is then skipped
+  for 20 to 60 s.
 - **Voice command** is untested outdoors (wind, a bike, the phone in a pocket). Check
   Diagnostics for its confidence scores before changing `MIN_WORD_CONFIDENCE`. It only listens
   while hands-free produces fresh readings near home, so standing still at home it is off.
 - **Lock-screen Open button and voice** open the door for anyone holding the phone.
-- **Force stop** (Settings, App info, Force stop) removes every geofence until the app is opened
-  again. Swiping the app away from Recents does not.
+- **Force stop** (Settings, App info, Force stop) removes every geofence, and also stops the voice
+  listener. Swiping the app away from Recents does neither. Unverified: opening the app may not
+  re-register the geofences, because the stored registration fingerprint still matches; if
+  Diagnostics shows no wake-ups after a force stop, toggle hands-free off and on.
+- **Voice after a restart or update** needs one tap (the "Voice command paused" notification) or
+  opening the app: Android does not let an app reopen the microphone in the background.
+- **On-device tests**: never run `connectedAndroidTest`; it uninstalls the app and wipes the myQ
+  sign-in and settings. See the README for the `am instrument` way.
