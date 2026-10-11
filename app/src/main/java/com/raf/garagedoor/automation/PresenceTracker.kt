@@ -50,16 +50,20 @@ class PresenceTracker(
     private val executor: DoorAutomationExecutor,
     private val diagnostics: DiagnosticsLog,
     private val clock: Clock,
+    private val isPowerSavingLimitingLocation: () -> Boolean = { false },
 ) {
     private val fixMutex = Mutex()
 
     suspend fun runSession(purpose: TrackingPurpose): SessionOutcome {
-        diagnostics.record("$purpose session started")
+        diagnostics.record("$purpose session started" + powerSavingNote())
         val stats = SessionStats()
         val outcome = runBounded(purpose, stats)
         diagnostics.record("$purpose session ended: $outcome after ${stats.fixCount} fixes, best accuracy ${stats.bestAccuracyLabel()}")
         return outcome
     }
+
+    private fun powerSavingNote(): String =
+        if (isPowerSavingLimitingLocation()) " (Power saving is on: no GPS while the screen is off, arrivals will be late)" else ""
 
     /** Precise readings while the hands-free screen is visible; they count toward automation too. */
     fun liveReadings(): Flow<LiveReading> = locationUpdates.fixes(LocationCadence.PRECISE)

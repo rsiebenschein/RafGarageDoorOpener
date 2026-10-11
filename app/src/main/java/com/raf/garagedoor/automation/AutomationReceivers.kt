@@ -83,6 +83,7 @@ class AutomationRestoreReceiver : BroadcastReceiver() {
             if (intent.action == Intent.ACTION_BOOT_COMPLETED) container.carConnection.clear()
             container.automationCoordinator.forceSync()
             resumeArrivalWatchIfAway(context, container)
+            if (container.automationSettings.current().voiceOpenEnabled) container.automationNotifications.showVoicePaused()
         }
     }
 

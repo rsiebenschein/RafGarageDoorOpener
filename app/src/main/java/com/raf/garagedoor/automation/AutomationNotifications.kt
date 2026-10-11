@@ -33,15 +33,45 @@ class AutomationNotifications(private val context: Context) : AutomationAlerts {
         )
     }
 
-    fun trackingNotification(purpose: TrackingPurpose): Notification =
-        NotificationCompat.Builder(context, TRACKING_CHANNEL)
+    /** The away watch also offers "Open garage", shown on the lock screen so it works without unlocking. */
+    fun trackingNotification(purpose: TrackingPurpose): Notification {
+        val builder = NotificationCompat.Builder(context, TRACKING_CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_garage)
             .setContentTitle(context.getString(R.string.app_name))
             .setContentText(context.getString(trackingTextFor(purpose)))
             .setContentIntent(openAppIntent())
             .setOngoing(true)
             .setSilent(true)
+        if (purpose == TrackingPurpose.ARRIVAL) {
+            builder.setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .addAction(0, context.getString(R.string.away_open_action), DoorCommandActionReceiver.awayOpenIntent(context))
+        }
+        return builder.build()
+    }
+
+    /** Ongoing notification of the voice service; says whether the microphone is open right now. */
+    fun voiceNotification(isListening: Boolean): Notification =
+        NotificationCompat.Builder(context, TRACKING_CHANNEL)
+            .setSmallIcon(R.drawable.ic_stat_garage)
+            .setContentTitle(context.getString(R.string.app_name))
+            .setContentText(context.getString(if (isListening) R.string.voice_listening else R.string.voice_waiting))
+            .setContentIntent(openAppIntent())
+            .setOngoing(true)
+            .setSilent(true)
             .build()
+
+    fun updateVoiceNotification(isListening: Boolean) = notifyIfAllowed(VOICE_NOTIFICATION_ID, voiceNotification(isListening))
+
+    /** Android only allows the microphone service to start from the app, so after a restart a tap is needed. */
+    fun showVoicePaused() {
+        val notification = actionNotificationBuilder(context.getString(R.string.voice_paused_title))
+            .setContentText(context.getString(R.string.voice_paused_body))
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .build()
+        notifyIfAllowed(VOICE_PAUSED_NOTIFICATION_ID, notification)
+    }
+
+    fun dismissVoicePaused() = manager.cancel(VOICE_PAUSED_NOTIFICATION_ID)
 
     override fun showCountdown(decision: DoorDecision, seconds: Int) {
         val title = context.getString(if (decision == DoorDecision.OPEN) R.string.countdown_opening else R.string.countdown_closing, seconds)
@@ -138,17 +168,19 @@ class AutomationNotifications(private val context: Context) : AutomationAlerts {
         else -> R.string.result_failed
     }
 
-    private companion object {
-        const val TRACKING_CHANNEL = "presence_tracking"
-        const val ACTIONS_CHANNEL = "door_actions"
-        const val COUNTDOWN_NOTIFICATION_ID = 1002
-        const val RESULT_NOTIFICATION_ID = 1003
-        const val OPEN_APP_REQUEST_CODE = 20
-        const val CANCEL_REQUEST_CODE = 21
-        const val CLOSE_REQUEST_CODE = 22
-        const val IGNORE_REQUEST_CODE = 23
-        const val LEFT_OPEN_NOTIFICATION_ID = 1004
-        const val LEFT_OPEN_CHANNEL = "left_open"
-        const val MILLIS_PER_SECOND = 1_000L
+    companion object {
+        const val VOICE_NOTIFICATION_ID = 1005
+        private const val VOICE_PAUSED_NOTIFICATION_ID = 1006
+        private const val TRACKING_CHANNEL = "presence_tracking"
+        private const val ACTIONS_CHANNEL = "door_actions"
+        private const val COUNTDOWN_NOTIFICATION_ID = 1002
+        private const val RESULT_NOTIFICATION_ID = 1003
+        private const val OPEN_APP_REQUEST_CODE = 20
+        private const val CANCEL_REQUEST_CODE = 21
+        private const val CLOSE_REQUEST_CODE = 22
+        private const val IGNORE_REQUEST_CODE = 23
+        private const val LEFT_OPEN_NOTIFICATION_ID = 1004
+        private const val LEFT_OPEN_CHANNEL = "left_open"
+        private const val MILLIS_PER_SECOND = 1_000L
     }
 }

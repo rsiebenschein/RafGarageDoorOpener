@@ -6,9 +6,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.lifecycle.lifecycleScope
+import com.raf.garagedoor.automation.voice.VoiceCommandService
 import com.raf.garagedoor.ui.GarageAppRoot
 import com.raf.garagedoor.ui.session.SessionViewModel
 import com.raf.garagedoor.ui.theme.RafsGarageTheme
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
@@ -20,6 +23,16 @@ class MainActivity : ComponentActivity() {
         // A recreated activity is handed its original intent again; its callback was already consumed.
         if (savedInstanceState == null) consumeSignInCallback(intent)
         setContent { RafsGarageTheme { GarageAppRoot(sessionViewModel) } }
+    }
+
+    /** The voice service may only take the microphone while the app is on screen, so (re)start it here. */
+    override fun onStart() {
+        super.onStart()
+        val container = (application as GarageApplication).container
+        lifecycleScope.launch {
+            val isWanted = container.automationSettings.current().voiceOpenEnabled
+            if (isWanted && container.automationPermissions.status().microphone) VoiceCommandService.start(this@MainActivity)
+        }
     }
 
     override fun onNewIntent(intent: Intent) {

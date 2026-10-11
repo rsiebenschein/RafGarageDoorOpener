@@ -13,12 +13,15 @@ data class AutomationPermissionStatus(
     val notifications: Boolean,
     val batteryUnrestricted: Boolean,
     val bluetoothConnect: Boolean,
+    val microphone: Boolean,
+    /** Not a permission, but checked alongside them: Power saving turns GPS off with the screen off. */
+    val powerSavingLimitsLocation: Boolean,
 ) {
     /** The minimum for system geofences to wake the app while it is closed. */
     val canTrackInBackground: Boolean get() = preciseLocation && backgroundLocation
 }
 
-class AutomationPermissions(private val context: Context) {
+class AutomationPermissions(private val context: Context, private val powerSaving: PowerSavingCheck) {
 
     private val powerManager = context.getSystemService(PowerManager::class.java)
 
@@ -29,6 +32,8 @@ class AutomationPermissions(private val context: Context) {
         notifications = isGranted(Manifest.permission.POST_NOTIFICATIONS),
         batteryUnrestricted = powerManager?.isIgnoringBatteryOptimizations(context.packageName) == true,
         bluetoothConnect = isGranted(Manifest.permission.BLUETOOTH_CONNECT),
+        microphone = isGranted(Manifest.permission.RECORD_AUDIO),
+        powerSavingLimitsLocation = powerSaving.isLimitingLocation(),
     )
 
     private fun isGranted(permission: String): Boolean =

@@ -1,12 +1,18 @@
 package com.raf.garagedoor.ui.automation
 
+import android.content.Intent
+import android.provider.Settings
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -22,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.raf.garagedoor.R
@@ -56,6 +63,21 @@ private fun formatDistance(feet: Int): String =
     } else {
         stringResource(R.string.distance_miles, feet.toDouble() / FEET_PER_MILE)
     }
+
+/** Field test 4: with Power saving on, GPS is off while the screen is off, so arrivals open late. */
+@Composable
+fun PowerSavingWarningCard() {
+    val context = LocalContext.current
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(R.string.power_saving_title), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onErrorContainer)
+            Text(stringResource(R.string.power_saving_detail), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
+            OutlinedButton(onClick = { context.startActivity(Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS)) }) {
+                Text(stringResource(R.string.power_saving_open_settings))
+            }
+        }
+    }
+}
 
 @Composable
 fun SetupChecklistCard(permissions: AutomationPermissionStatus, requests: PermissionRequests) {
@@ -127,6 +149,21 @@ fun CarBluetoothCard(state: AutomationUiState, actions: AutomationScreenActions)
             Switch(checked = state.settings.requireCarBluetooth, onCheckedChange = actions.onRequireCarChange)
         }
         if (state.settings.requireCarBluetooth) CarPicker(state, actions)
+    }
+}
+
+@Composable
+fun VoiceCommandCard(state: AutomationUiState, actions: AutomationScreenActions) {
+    val hasMicrophone = state.capabilities.permissions.microphone
+    SettingsCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.voice_title), style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.voice_detail), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Switch(checked = state.settings.voiceOpenEnabled, onCheckedChange = actions.onVoiceOpenChange, enabled = hasMicrophone)
+        }
+        if (!hasMicrophone) OutlinedButton(onClick = actions.permissionRequests.microphone) { Text(stringResource(R.string.voice_allow_microphone)) }
     }
 }
 

@@ -18,6 +18,7 @@ class PermissionRequests(
     val notifications: () -> Unit,
     val bluetooth: () -> Unit,
     val batteryUnrestricted: () -> Unit,
+    val microphone: () -> Unit,
 )
 
 @Composable
@@ -33,6 +34,7 @@ fun rememberPermissionRequests(onResult: () -> Unit): PermissionRequests {
         notifications = rememberPermissionRequest(arrayOf(Manifest.permission.POST_NOTIFICATIONS), onResult),
         bluetooth = rememberPermissionRequest(arrayOf(Manifest.permission.BLUETOOTH_CONNECT), onResult),
         batteryUnrestricted = { requestBatteryUnrestricted(context) },
+        microphone = rememberPermissionRequest(arrayOf(Manifest.permission.RECORD_AUDIO), onResult),
     )
 }
 

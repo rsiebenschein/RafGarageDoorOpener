@@ -19,6 +19,7 @@ import com.raf.garagedoor.automation.LiveReading
 import com.raf.garagedoor.automation.PresenceTracker
 import com.raf.garagedoor.automation.PresenceRepository
 import com.raf.garagedoor.automation.PresenceState
+import com.raf.garagedoor.automation.voice.VoiceServiceControl
 import com.raf.garagedoor.bluetooth.CarConnectionRepository
 import com.raf.garagedoor.bluetooth.PairedBluetoothDevices
 import com.raf.garagedoor.geofence.GarageGeofence
@@ -64,6 +65,7 @@ class AutomationViewModel(
     private val tracker: PresenceTracker,
     private val diagnostics: DiagnosticsLog,
     private val installedAt: Instant,
+    private val voiceService: VoiceServiceControl,
 ) : ViewModel() {
 
     private val mutableLiveReading = MutableStateFlow<LiveReading?>(null)
@@ -112,6 +114,15 @@ class AutomationViewModel(
     fun setLeftOpenMinutes(minutes: Int) = updateSettings { it.copy(leftOpenMinutes = minutes) }
 
     fun setUseMobileData(enabled: Boolean) = updateSettings { it.copy(useMobileData = enabled) }
+
+    /** Starts the voice service right away: this screen is on display, which Android requires for the microphone. */
+    fun setVoiceOpen(enabled: Boolean) {
+        val allowed = enabled && capabilities.value.permissions.microphone
+        viewModelScope.launch {
+            settingsRepository.update { it.copy(voiceOpenEnabled = allowed) }
+            if (allowed) voiceService.start() else voiceService.stop()
+        }
+    }
 
     /** Starts the next field test from a clean slate, labelled with the build it runs on. */
     fun clearLogs() {
@@ -166,6 +177,7 @@ class AutomationViewModel(
                     tracker = container.presenceTracker,
                     diagnostics = container.diagnosticsLog,
                     installedAt = container.installedAt,
+                    voiceService = container.voiceServiceControl,
                 )
             }
         }

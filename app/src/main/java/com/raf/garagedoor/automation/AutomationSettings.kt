@@ -31,6 +31,8 @@ data class AutomationSettings(
     val leftOpenMinutes: Int = LeftOpenLimits.DEFAULT_MINUTES,
     /** Send myQ requests over mobile data first (never while roaming), with Wi-Fi as the backup. */
     val useMobileData: Boolean = true,
+    /** Listen for "Open garage door" while within 500 ft of the garage. */
+    val voiceOpenEnabled: Boolean = false,
 )
 
 object CountdownLimits {
@@ -79,6 +81,7 @@ class DataStoreAutomationSettingsRepository(context: Context) : AutomationSettin
                 ?: LeftOpenAction.OFF,
             leftOpenMinutes = preferences[LEFT_OPEN_MINUTES] ?: LeftOpenLimits.DEFAULT_MINUTES,
             useMobileData = preferences[USE_MOBILE_DATA] ?: true,
+            voiceOpenEnabled = preferences[VOICE_OPEN] ?: false,
         )
     }
 
@@ -90,6 +93,7 @@ class DataStoreAutomationSettingsRepository(context: Context) : AutomationSettin
         preferences[LEFT_OPEN_ACTION] = settings.leftOpenAction.name
         preferences[LEFT_OPEN_MINUTES] = settings.leftOpenMinutes.coerceIn(LeftOpenLimits.MIN_MINUTES, LeftOpenLimits.MAX_MINUTES)
         preferences[USE_MOBILE_DATA] = settings.useMobileData
+        preferences[VOICE_OPEN] = settings.voiceOpenEnabled
         settings.car?.let {
             preferences[CAR_ADDRESS] = it.address
             preferences[CAR_NAME] = it.name
@@ -109,5 +113,6 @@ class DataStoreAutomationSettingsRepository(context: Context) : AutomationSettin
         val LEFT_OPEN_ACTION = stringPreferencesKey("left_open_action")
         val LEFT_OPEN_MINUTES = intPreferencesKey("left_open_minutes")
         val USE_MOBILE_DATA = booleanPreferencesKey("use_mobile_data")
+        val VOICE_OPEN = booleanPreferencesKey("voice_open_enabled")
     }
 }

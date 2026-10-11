@@ -55,9 +55,9 @@ class AutomationCoordinator(
 
     private suspend fun apply(fingerprint: String?) {
         val geofence = geofences.geofence.first()
-        val zoneSettingsChanged = fingerprint != presence.registeredFingerprint()
+        val isSameGarage = garageCenterOf(presence.registeredFingerprint()) == garageCenterOf(fingerprint)
         try {
-            if (fingerprint == null || geofence == null) disable() else enable(geofence, resetPresence = zoneSettingsChanged)
+            if (fingerprint == null || geofence == null) disable() else enable(geofence, resetPresence = !isSameGarage)
             presence.saveRegisteredFingerprint(fingerprint)
         } catch (registrationFailed: AutomationRegistrationException) {
             diagnostics.record("Registering wake-up triggers failed: ${registrationFailed.message}")
@@ -65,14 +65,19 @@ class AutomationCoordinator(
         }
     }
 
-    /** Home/away is only reset when the zones change; re-registering after a reboot keeps it. */
+    /**
+     * Home/away is only reset when the garage itself moves (or hands-free was off). Changing a radius
+     * keeps it, so the armed flag survives settings changes made while away (field test 4); the next
+     * reading re-evaluates the zone with the new radii.
+     */
     private suspend fun enable(geofence: GarageGeofence, resetPresence: Boolean) {
         val withActivity = permissions.status().activityRecognition
         registrar.register(geofence, includeActivityTransitions = withActivity)
         if (resetPresence) presence.save(PresenceState())
         val wakeFeet = metersToFeet(AutomationRegistrar.wakeRadiusMeters(geofence))
         val homeFenceFeet = metersToFeet(AutomationRegistrar.homeFenceRadiusMeters(geofence))
-        diagnostics.record("Registered wake-up zone ($wakeFeet ft), home fence ($homeFenceFeet ft), activity detection=$withActivity")
+        val presenceNote = if (resetPresence) "home/away reset" else "home/away kept"
+        diagnostics.record("Registered wake-up zone ($wakeFeet ft), home fence ($homeFenceFeet ft), activity detection=$withActivity, $presenceNote")
     }
 
     private suspend fun disable() {
@@ -80,6 +85,10 @@ class AutomationCoordinator(
         PresenceTrackingService.stop(context)
         diagnostics.record("Hands-free off: wake-up triggers removed")
     }
+
+    /** The fingerprint starts with the garage's latitude and longitude; null when nothing is registered. */
+    private fun garageCenterOf(fingerprint: String?): List<String>? =
+        fingerprint?.split(FINGERPRINT_SEPARATOR)?.take(CENTER_FIELD_COUNT)
 
     private fun fingerprintOf(geofence: GarageGeofence, withActivity: Boolean): String = listOf(
         geofence.center.latitude,
@@ -89,5 +98,10 @@ class AutomationCoordinator(
         AutomationRegistrar.wakeRadiusMeters(geofence),
         AutomationRegistrar.homeFenceRadiusMeters(geofence),
         withActivity,
-    ).joinToString("|")
+    ).joinToString(FINGERPRINT_SEPARATOR)
+
+    private companion object {
+        const val FINGERPRINT_SEPARATOR = "|"
+        const val CENTER_FIELD_COUNT = 2
+    }
 }

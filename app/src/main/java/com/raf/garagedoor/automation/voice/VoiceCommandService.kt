@@ -1,0 +1,160 @@
+package com.raf.garagedoor.automation.voice
+
+import android.app.ForegroundServiceStartNotAllowedException
+import android.app.Service
+import android.content.Context
+import android.content.Intent
+import android.content.pm.ServiceInfo
+import android.media.AudioManager
+import android.media.ToneGenerator
+import android.os.IBinder
+import androidx.core.app.ServiceCompat
+import androidx.core.content.ContextCompat
+import com.raf.garagedoor.GarageApplication
+import com.raf.garagedoor.automation.AutomationNotifications
+import com.raf.garagedoor.automation.DoorCommandWorker
+import com.raf.garagedoor.door.DoorCommand
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.launch
+import java.time.Duration
+import java.time.Instant
+import java.util.Locale
+
+/**
+ * "Open garage door" by voice, with the phone locked and the app closed. Android only lets an app
+ * use the microphone in the background from a foreground service that was started while the app
+ * was on screen, so this service is started from the app and then stays running; it only opens the
+ * microphone while [VoiceListeningGate] says the user is within 500 ft of the garage.
+ */
+class VoiceCommandService : Service() {
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val container get() = (application as GarageApplication).container
+    private val notifications: AutomationNotifications get() = container.automationNotifications
+    private lateinit var listener: VoskPhraseListener
+    private var gateWatch: Job? = null
+    private var lastOpenAt: Instant? = null
+
+    override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onCreate() {
+        super.onCreate()
+        listener = VoskPhraseListener(this, ::onPhrase) { problem -> record(problem) }
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (!enterForeground()) {
+            notifications.showVoicePaused()
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        notifications.dismissVoicePaused()
+        if (gateWatch == null) gateWatch = scope.launch { followListeningGate() }
+        return START_STICKY
+    }
+
+    override fun onDestroy() {
+        listener.release()
+        scope.cancel()
+        super.onDestroy()
+    }
+
+    /** Fails when started from the background (e.g. Android restarting the service): no microphone then. */
+    private fun enterForeground(): Boolean = try {
+        val notification = notifications.voiceNotification(isListening = false)
+        ServiceCompat.startForeground(this, AutomationNotifications.VOICE_NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+        true
+    } catch (notAllowed: ForegroundServiceStartNotAllowedException) {
+        false
+    } catch (microphoneNotAllowed: SecurityException) {
+        false
+    }
+
+    private suspend fun followListeningGate() {
+        combine(container.automationSettings.settings, container.presenceRepository.state, everyFewSeconds()) { settings, presence, _ ->
+            settings.voiceOpenEnabled to VoiceListeningGate.shouldListen(presence, container.clock.instant())
+        }.collect { (isEnabled, isNearGarage) ->
+            if (!isEnabled) stopSelf() else applyListening(isNearGarage)
+        }
+    }
+
+    /** Re-checks the gate while nothing else changes, so listening stops once the last reading is too old. */
+    private fun everyFewSeconds(): Flow<Unit> = flow {
+        while (true) {
+            emit(Unit)
+            delay(GATE_RECHECK_MILLIS)
+        }
+    }
+
+    private suspend fun applyListening(shouldListen: Boolean) {
+        if (shouldListen == listener.isListening) return
+        if (shouldListen) listener.start() else listener.stop()
+        if (listener.isListening != shouldListen) return
+        notifications.updateVoiceNotification(shouldListen)
+        record(if (shouldListen) "Voice: listening (within 500 ft of the garage)" else "Voice: stopped listening")
+    }
+
+    private fun onPhrase(heard: HeardPhrase) {
+        when {
+            VoicePhrases.isOpenCommand(heard) -> openDoor(heard)
+            VoicePhrases.isNearMiss(heard) -> record("Voice: heard \"${heard.text}\" (${confidenceLabel(heard)}), not sure enough to open")
+        }
+    }
+
+    private fun openDoor(heard: HeardPhrase) {
+        val now = container.clock.instant()
+        if (lastOpenAt?.let { Duration.between(it, now) < REPEAT_COOLDOWN } == true) return
+        lastOpenAt = now
+        acknowledgeWithTone()
+        DoorCommandWorker.enqueue(this, DoorCommand.OPEN, REASON)
+        record("Voice: heard \"${heard.text}\" (${confidenceLabel(heard)}), opening")
+    }
+
+    /** ToneGenerator reports a busy or missing audio device only as a RuntimeException; the door opens anyway. */
+    private fun acknowledgeWithTone() {
+        val tone = try {
+            ToneGenerator(AudioManager.STREAM_NOTIFICATION, TONE_VOLUME)
+        } catch (audioUnavailable: RuntimeException) {
+            return
+        }
+        tone.startTone(ToneGenerator.TONE_PROP_ACK, TONE_MILLIS)
+        scope.launch {
+            delay(TONE_MILLIS.toLong())
+            tone.release()
+        }
+    }
+
+    private fun confidenceLabel(heard: HeardPhrase): String {
+        val confidence = VoicePhrases.openPhraseConfidence(heard) ?: heard.words.minOfOrNull { it.confidence } ?: 0.0
+        return "confidence ${String.format(Locale.US, "%.2f", confidence)}"
+    }
+
+    private fun record(message: String) {
+        scope.launch { container.diagnosticsLog.record(message) }
+    }
+
+    companion object {
+        private const val REASON = "Voice command"
+        private const val GATE_RECHECK_MILLIS = 15_000L
+        private const val TONE_VOLUME = 80
+        private const val TONE_MILLIS = 300
+        private val REPEAT_COOLDOWN: Duration = Duration.ofSeconds(30)
+
+        /** Only while the app is on screen (or from a tap on its notification); see the class comment. */
+        fun start(context: Context) {
+            ContextCompat.startForegroundService(context, Intent(context, VoiceCommandService::class.java))
+        }
+
+        fun stop(context: Context) {
+            context.stopService(Intent(context, VoiceCommandService::class.java))
+        }
+    }
+}

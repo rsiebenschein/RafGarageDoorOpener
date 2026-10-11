@@ -48,6 +48,7 @@ class AutomationScreenActions(
     val onLeftOpenActionChange: (LeftOpenAction) -> Unit,
     val onLeftOpenMinutesChange: (Int) -> Unit,
     val onUseMobileDataChange: (Boolean) -> Unit,
+    val onVoiceOpenChange: (Boolean) -> Unit,
     val onOpenDiagnostics: () -> Unit,
     val permissionRequests: PermissionRequests,
 )
@@ -80,6 +81,7 @@ fun AutomationSettingsRoute(
         onLeftOpenActionChange = viewModel::setLeftOpenAction,
         onLeftOpenMinutesChange = viewModel::setLeftOpenMinutes,
         onUseMobileDataChange = viewModel::setUseMobileData,
+        onVoiceOpenChange = viewModel::setVoiceOpen,
         onOpenDiagnostics = onOpenDiagnostics,
         permissionRequests = rememberPermissionRequests(onResult = viewModel::refreshCapabilities),
     )
@@ -115,12 +117,14 @@ private fun AutomationSettingsContent(state: AutomationUiState, liveReading: Liv
         modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        if (state.capabilities.permissions.powerSavingLimitsLocation) PowerSavingWarningCard()
         MasterSwitchCard(state, actions)
         LiveDistanceCard(liveReading)
         SetupChecklistCard(state.capabilities.permissions, actions.permissionRequests)
         CountdownCard(state.settings, actions.onOpenCountdownChange, actions.onCloseCountdownChange)
         CarBluetoothCard(state, actions)
         LeftOpenCard(state.settings, actions.onLeftOpenActionChange, actions.onLeftOpenMinutesChange)
+        VoiceCommandCard(state, actions)
         MobileDataCard(state.settings.useMobileData, actions.onUseMobileDataChange)
         OutlinedButton(onClick = actions.onOpenActivityLog, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.activity_log_title))

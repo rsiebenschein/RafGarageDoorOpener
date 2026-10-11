@@ -16,12 +16,14 @@ import com.raf.garagedoor.automation.DataStorePresenceRepository
 import com.raf.garagedoor.automation.DepartureOnDoorOpen
 import com.raf.garagedoor.automation.DiagnosticsLog
 import com.raf.garagedoor.automation.DoorAutomationExecutor
+import com.raf.garagedoor.automation.PowerSavingCheck
 import com.raf.garagedoor.automation.PresenceRepository
 import com.raf.garagedoor.automation.PresenceTracker
 import com.raf.garagedoor.automation.leftopen.DataStoreLeftOpenStateRepository
 import com.raf.garagedoor.automation.leftopen.LeftOpenCheckScheduler
 import com.raf.garagedoor.automation.leftopen.LeftOpenMonitor
 import com.raf.garagedoor.automation.leftopen.LeftOpenStateRepository
+import com.raf.garagedoor.automation.voice.VoiceServiceControl
 import com.raf.garagedoor.bluetooth.CarConnectionRepository
 import com.raf.garagedoor.bluetooth.DataStoreCarConnectionRepository
 import com.raf.garagedoor.bluetooth.PairedBluetoothDevices
@@ -113,7 +115,9 @@ class AppContainer(context: Context) {
     val activityLog: ActivityLogRepository = DataStoreActivityLogRepository(context)
     val carConnection: CarConnectionRepository = DataStoreCarConnectionRepository(context)
     val pairedBluetoothDevices = PairedBluetoothDevices(context)
-    val automationPermissions = AutomationPermissions(context)
+    val powerSavingCheck = PowerSavingCheck(context)
+    val voiceServiceControl = VoiceServiceControl(context.applicationContext)
+    val automationPermissions = AutomationPermissions(context, powerSavingCheck)
     val automationNotifications = AutomationNotifications(context)
     val commandCountdown = CommandCountdown()
     val diagnosticsLog: DiagnosticsLog = DataStoreDiagnosticsLog(context, clock)
@@ -128,7 +132,14 @@ class AppContainer(context: Context) {
         onRetry = { attempt, error -> diagnosticsLog.record("myQ attempt $attempt failed, retrying: ${error.message}") },
     )
 
-    val backgroundDoorCommands = BackgroundDoorCommands(garageDoorController, doorRetry, activityLog, automationNotifications, clock)
+    val backgroundDoorCommands = BackgroundDoorCommands(
+        garageDoorController,
+        doorRetry,
+        activityLog,
+        automationNotifications,
+        clock,
+        onOpened = { leftOpenCheckScheduler.onDoorOpened() },
+    )
 
     val leftOpenMonitor = LeftOpenMonitor(
         controller = garageDoorController,
@@ -164,6 +175,7 @@ class AppContainer(context: Context) {
         executor = doorAutomationExecutor,
         diagnostics = diagnosticsLog,
         clock = clock,
+        isPowerSavingLimitingLocation = powerSavingCheck::isLimitingLocation,
     )
 
     val departureOnDoorOpen = DepartureOnDoorOpen(context.applicationContext, automationSettings, presenceRepository, diagnosticsLog)

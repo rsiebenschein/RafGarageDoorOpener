@@ -103,7 +103,10 @@ it worked after the user turned Wi-Fi off. Coming home at about 23:09 the door o
   Lesson: Android refuses `requestNetwork` with NET_CAPABILITY_NOT_ROAMING
   (IllegalArgumentException, which crashed the first build); roaming has to be checked on the
   network's capabilities after it comes up.
-- Not fixed yet: radius changes while away still reset the armed flag.
+- Radius changes no longer reset home/away or the armed flag; only moving the garage pin (or
+  turning hands-free off and on) does. Diagnostics says "home/away kept" or "home/away reset".
+- A "Power saving is on" card on the Hands-free screen, and a note on every tracking session in
+  Diagnostics.
 
 **Battery:** Samsung showed the app at 3.9% of battery *use* since the last charge. Android's own
 estimate was about 21 mAh over 5 hours (about 0.4% of a 5,000 mAh battery): wake locks while
@@ -271,6 +274,14 @@ departure so short trips inside the wake-up zone are watched on the way back.
 - **2026-10-10, widget second tap ignored:** Android delivers a widget's taps one at a time, so a
   tap callback must never wait; the 4 s "Tap again" expiry runs in the application scope.
 
+- **2026-10-11, voice recognizer (Vosk) does not hold to whole phrases**: with the grammar
+  limited to the open phrases plus "[unk]", synthetic "Open garage door" came out as "[unk] open
+  garage door" and "Is the door open" as "[unk] the door open". Matching therefore looks for an
+  open phrase as consecutive words and scores only those words. Checked on the phone with six
+  `say` samples (`VoskModelOnDeviceTest`): both open phrases open; "Close the garage door", "Is
+  the door open", "Can you open the window please" and "There is a garage sale down the street" do
+  not. Real voices outdoors are untested.
+
 ## Open risks and ideas not yet tried
 
 - **Do not rely on geofences for arrival.** Test 3 proved they are checked only every 30-40
@@ -292,12 +303,13 @@ departure so short trips inside the wake-up zone are watched on the way back.
   notification's **Close now** button remains. A delayed retry would need to check the user is
   still away before closing.
 - **Power saving mode** (test 4) disables GPS with the screen off and defers background checks.
-  Idea: detect it (`PowerManager.isPowerSaveMode`, `locationPowerSaveMode`) and warn on the
-  hands-free screen and in Diagnostics.
+  The app now warns about it, but cannot override it.
 - **Weak Wi-Fi at the edge of range** (tests 3 and 4): now sent over mobile data first (see test
   4). Not yet ride-tested. If cell signal is weak at the door, each call waits up to 5 s before
   falling back to Wi-Fi.
-- **Changing radii while away** resets home/away and disarms (test 4). Idea: keep the armed flag
-  when only the radii change and the user is clearly away.
+- **Voice command** is untested outdoors (wind, a bike, the phone in a pocket). Check
+  Diagnostics for its confidence scores before changing `MIN_WORD_CONFIDENCE`. It only listens
+  while hands-free produces fresh readings near home, so standing still at home it is off.
+- **Lock-screen Open button and voice** open the door for anyone holding the phone.
 - **Force stop** (Settings, App info, Force stop) removes every geofence until the app is opened
   again. Swiping the app away from Recents does not.

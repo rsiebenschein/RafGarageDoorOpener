@@ -8,13 +8,17 @@ import com.raf.garagedoor.door.GarageDoorController
 import com.raf.garagedoor.door.TransientRetry
 import java.time.Clock
 
-/** Door commands issued without the app on screen: notification buttons and the home-screen widget. */
+/**
+ * Door commands issued without the app on screen: notification buttons, the home-screen widget and
+ * the voice command. [onOpened] starts the left-open timer for every one of them.
+ */
 class BackgroundDoorCommands(
     private val controller: GarageDoorController,
     private val retry: TransientRetry,
     private val activityLog: ActivityLogRepository,
     private val alerts: AutomationAlerts,
     private val clock: Clock,
+    private val onOpened: suspend () -> Unit = {},
 ) {
     suspend fun run(command: DoorCommand, reason: String, showsResult: Boolean = true) {
         try {
@@ -22,6 +26,7 @@ class BackgroundDoorCommands(
                 ?: return recordFailure(command, "No garage door found on the myQ account")
             if (!isNeeded(command, door)) return record(alreadyThere(command), reason, showsResult)
             retry.run { controller.execute(door.id, command) }
+            if (command == DoorCommand.OPEN) onOpened()
             record(if (command == DoorCommand.OPEN) AutomationEventType.OPENED else AutomationEventType.CLOSED, reason, showsResult)
         } catch (error: GarageDoorControlException) {
             recordFailure(command, error.message)

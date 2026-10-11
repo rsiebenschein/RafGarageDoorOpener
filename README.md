@@ -6,6 +6,8 @@ Personal Android app (built for a Galaxy S23 Ultra) for a Chamberlain myQ garage
 - **Home-screen widget** (1x1 up to a 4x1 strip) with status and a tap-twice open/close button
 - **Hands-free**: opens the door as you arrive and closes it after you leave
 - **Left-open monitor**: reminds you, or closes the door, when it has been open too long
+- **Voice**: say "Open garage door" with the phone locked, only within 500 ft of the garage
+- **Lock-screen Open button** on the away notification
 
 Not affiliated with Chamberlain Group. myQ has no public API. This app uses the same unofficial
 cloud API as the community Home Assistant integration, so a myQ update can break it at any time
@@ -85,6 +87,33 @@ It starts at 1x1; long-press it and drag the handles to widen it up to a 4x1 str
   check every few minutes, the app screen), every 3 seconds while the door moves after a
   command, and every 30 minutes otherwise. A wall-button change can take a few minutes to show.
 
+### Lock-screen Open button
+
+While the away watch runs ("Away: watching for your return"), its notification has an **Open
+garage** button. It shows on the lock screen, so one tap opens the door without unlocking.
+Anyone holding your phone can use it, the same as the voice command.
+
+### Voice: "Open garage door" (optional)
+
+Turn on *Voice: "Open garage door"* in Hands-free settings (it asks for the microphone). Saying
+"Open garage door" or "Open the garage door" then opens the door, with the phone locked and the
+app closed, but only within 500 ft of the garage:
+
+- **When it listens**: only while a location reading from the last 2 minutes puts you within
+  500 ft. Those readings come from hands-free (the away watch uses GPS every 2 s near home, the
+  departure check, the hands-free screen). With the phone lying still at home, the reading goes
+  stale and the microphone closes, so a TV or a conversation indoors cannot open the door.
+  Hands-free must be on.
+- **On the phone only**: speech is recognized offline (Vosk, small English model, about 70 MB
+  unpacked). No audio is sent anywhere or saved. Android shows the microphone indicator while it
+  listens.
+- **Feedback**: a short tone, then the usual result notification. Repeats within 30 s are ignored.
+- **After a phone restart or app update**, Android does not let an app reopen the microphone in
+  the background. A "Voice command paused" notification appears; tap it (or open the app) once.
+- **Tuning**: Diagnostics logs "Voice: listening" / "stopped listening", every phrase it acts on
+  and near misses, each with a confidence score. A command needs each of its words heard with
+  confidence 0.6 or more (`VoicePhrases.MIN_WORD_CONFIDENCE`).
+
 ### Car Bluetooth (optional)
 
 With *Only auto-open in my car* on, the app opens the door only while your phone is connected to
@@ -119,6 +148,19 @@ echo 'MAPS_API_KEY=your-key-here' > .env    # see "Google Maps key" below
 ```
 
 Android Studio's Run button works too and picks up `.env` automatically.
+
+The first build downloads the voice model (41 MB, SHA-256 checked) into `.gradle/vosk/`; later
+builds reuse it. The debug APK is about 124 MB because of it.
+
+On-device tests (speech model and phrase recognition on the real phone) must be run like this,
+**not** with `connectedAndroidTest`, which uninstalls the app afterwards and wipes its sign-in
+and settings:
+
+```sh
+./gradlew installDebug installDebugAndroidTest
+adb shell am instrument -w com.raf.garagedoor.test/androidx.test.runner.AndroidJUnitRunner
+adb uninstall com.raf.garagedoor.test
+```
 
 ### 2. On the phone
 
@@ -172,6 +214,9 @@ Without a key the app still builds; the map is just blank.
 - *"Android refused to start tracking"*: battery is not set to Unrestricted, or location is not
   "Allow all the time".
 - *Repeated myQ timeouts*: myQ itself may be down or rate limiting (HTTP 429 means wait an hour).
+- *"Power saving is on" card on the Hands-free screen*: turn Power saving off. While it is on,
+  Android turns GPS off with the screen off and arrivals open late (field test 4). Diagnostics
+  also notes it on every tracking session.
 
 ## When myQ changes something
 
@@ -191,6 +236,7 @@ board wired to the opener) can replace the myQ cloud without touching the UI or 
 | `geofence` | Garage location, radii, distance math |
 | `automation` | Home/away engine, tracking service, triggers, executor, logs |
 | `automation/leftopen` | Left-open monitor and its background worker |
+| `automation/voice` | Voice command: 500 ft gate, phrase matching, offline recognizer, microphone service |
 | `bluetooth` | Car connection tracking |
 | `network` | Sending myQ requests over mobile data first, Wi-Fi as backup, never roaming |
 | `widget` | Home-screen widget (Glance), its status snapshot and tap handling |
@@ -202,3 +248,4 @@ board wired to the opener) can replace the myQ cloud without touching the UI or 
 2. Geofence editor: map pin plus adjustable open/close radius in feet ✅
 3. Hands-free open and close, left-open monitor, diagnostics ✅ (field testing)
 4. Home-screen widget ✅ (field testing), Quick Settings tile
+5. Voice command within 500 ft and lock-screen Open button ✅ (field testing)
