@@ -3,6 +3,7 @@ package com.raf.garagedoor.automation.voice
 import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.raf.garagedoor.door.DoorCommand
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -33,11 +34,11 @@ class VoskModelOnDeviceTest {
 
     /** Synthetic speech (macOS `say`); real voices in wind differ, so field results go to Diagnostics. */
     @Test
-    fun onlyTheOpenPhrasesOpen() {
+    fun onlyThePhrasesActAndEachDoesTheRightThing() {
         val model = unpackModel()
-        val opens = SAMPLES.associateWith { sample -> heardIn(model, sample)?.let(VoicePhrases::isOpenCommand) ?: false }
+        val commands = EXPECTED.keys.associateWith { sample -> heardIn(model, sample)?.let(VoicePhrases::commandIn) }
         model.close()
-        assertEquals(EXPECTED_OPENS, opens.filterValues { it }.keys)
+        assertEquals(EXPECTED, commands)
     }
 
     private fun heardIn(model: Model, sample: String): HeardPhrase? {
@@ -73,7 +74,16 @@ class VoskModelOnDeviceTest {
         const val SAMPLE_RATE = 16_000f
         const val DATA_HEADER_BYTES = 8
         const val LOG_TAG = "VoskSample"
-        val SAMPLES = listOf("open_garage_door", "open_the_garage_door", "close_garage_door", "open_the_window", "garage_sale", "door_open")
-        val EXPECTED_OPENS = setOf("open_garage_door", "open_the_garage_door")
+        /** Sample file name to the command it should give; null means it must do nothing. */
+        val EXPECTED: Map<String, DoorCommand?> = mapOf(
+            "open_garage_door" to DoorCommand.OPEN,
+            "open_the_garage_door" to DoorCommand.OPEN,
+            "close_garage_door" to DoorCommand.CLOSE,
+            "close_the_garage_door" to DoorCommand.CLOSE,
+            "garage_door_closed" to null,
+            "open_the_window" to null,
+            "garage_sale" to null,
+            "door_open" to null,
+        )
     }
 }

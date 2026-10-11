@@ -1,5 +1,6 @@
 package com.raf.garagedoor.automation.voice
 
+import com.raf.garagedoor.door.DoorCommand
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -9,36 +10,42 @@ import org.junit.Test
 class VoicePhrasesTest {
 
     @Test
-    fun `confident open phrase is a command`() {
-        assertTrue(VoicePhrases.isOpenCommand(heard("open" to 1.0, "garage" to 0.97, "door" to 0.91)))
+    fun `confident open phrase opens`() {
+        assertEquals(DoorCommand.OPEN, VoicePhrases.commandIn(heard("open" to 1.0, "garage" to 0.97, "door" to 0.91)))
     }
 
     @Test
-    fun `open phrase after unknown words is still a command, scored on its own words`() {
+    fun `confident close phrase closes, with or without the`() {
+        assertEquals(DoorCommand.CLOSE, VoicePhrases.commandIn(heard("close" to 0.9, "garage" to 1.0, "door" to 1.0)))
+        assertEquals(DoorCommand.CLOSE, VoicePhrases.commandIn(heard("close" to 0.9, "the" to 0.9, "garage" to 1.0, "door" to 1.0)))
+    }
+
+    @Test
+    fun `phrase after unknown words still counts, scored on its own words`() {
         val heard = heard("[unk]" to 0.2, "open" to 0.8, "the" to 0.79, "garage" to 0.95, "door" to 1.0)
-        assertEquals(0.79, VoicePhrases.openPhraseConfidence(heard)!!, 0.0)
-        assertTrue(VoicePhrases.isOpenCommand(heard))
+        assertEquals(VoiceCommand(DoorCommand.OPEN, 0.79), VoicePhrases.phraseIn(heard))
+        assertEquals(DoorCommand.OPEN, VoicePhrases.commandIn(heard))
     }
 
     @Test
-    fun `open phrase with a doubtful word is not a command`() {
-        val heard = heard("open" to 1.0, "garage" to 0.4, "door" to 0.95)
-        assertFalse(VoicePhrases.isOpenCommand(heard))
+    fun `phrase with a doubtful word is not a command`() {
+        val heard = heard("close" to 1.0, "garage" to 0.4, "door" to 0.95)
+        assertNull(VoicePhrases.commandIn(heard))
         assertTrue(VoicePhrases.isNearMiss(heard))
     }
 
-    /** These are what the phone heard for "Close the garage door", "Is the door open" and "Can you open the window please". */
+    /** These are what the phone heard for "Is the door open" and "Can you open the window please". */
     @Test
-    fun `similar sentences without the phrase are not commands`() {
-        assertFalse(VoicePhrases.isOpenCommand(heard("[unk]" to 1.0, "the" to 1.0, "garage" to 1.0, "door" to 1.0)))
-        assertFalse(VoicePhrases.isOpenCommand(heard("[unk]" to 1.0, "the" to 0.8, "door" to 0.8, "open" to 0.8)))
-        assertFalse(VoicePhrases.isOpenCommand(heard("[unk]" to 1.0, "open" to 1.0, "the" to 1.0, "[unk]" to 1.0)))
+    fun `similar sentences without a phrase are not commands`() {
+        assertNull(VoicePhrases.commandIn(heard("[unk]" to 1.0, "the" to 0.8, "door" to 0.8, "open" to 0.8)))
+        assertNull(VoicePhrases.commandIn(heard("[unk]" to 1.0, "open" to 1.0, "the" to 1.0, "[unk]" to 1.0)))
+        assertNull(VoicePhrases.commandIn(heard("[unk]" to 1.0, "the" to 1.0, "garage" to 1.0, "door" to 1.0, "close" to 1.0)))
     }
 
     @Test
     fun `other speech is neither a command nor worth logging`() {
         val heard = heard("[unk]" to 1.0)
-        assertFalse(VoicePhrases.isOpenCommand(heard))
+        assertNull(VoicePhrases.commandIn(heard))
         assertFalse(VoicePhrases.isNearMiss(heard))
     }
 
@@ -49,8 +56,9 @@ class VoicePhrasesTest {
     }
 
     @Test
-    fun `grammar lists the open phrases and the unknown word`() {
-        assertEquals("[\"open garage door\", \"open the garage door\", \"[unk]\"]", VoicePhrases.GRAMMAR)
+    fun `grammar lists the phrases and the unknown word`() {
+        val expected = "[\"open garage door\", \"open the garage door\", \"close garage door\", \"close the garage door\", \"[unk]\"]"
+        assertEquals(expected, VoicePhrases.GRAMMAR)
     }
 
     private fun heard(vararg words: Pair<String, Double>): HeardPhrase {

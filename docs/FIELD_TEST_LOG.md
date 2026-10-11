@@ -280,7 +280,9 @@ departure so short trips inside the wake-up zone are watched on the way back.
   open phrase as consecutive words and scores only those words. Checked on the phone with six
   `say` samples (`VoskModelOnDeviceTest`): both open phrases open; "Close the garage door", "Is
   the door open", "Can you open the window please" and "There is a garage sale down the street" do
-  not. Real voices outdoors are untested.
+  not. Close was added the same day: "Close garage door" and "Close the garage door" close, and
+  "Is the garage door closed" (heard as "[unk] the garage door close") does nothing. Real voices
+  outdoors are untested.
 
 ## Open risks and ideas not yet tried
 

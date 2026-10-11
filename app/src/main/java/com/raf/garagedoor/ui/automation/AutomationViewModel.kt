@@ -116,10 +116,10 @@ class AutomationViewModel(
     fun setUseMobileData(enabled: Boolean) = updateSettings { it.copy(useMobileData = enabled) }
 
     /** Starts the voice service right away: this screen is on display, which Android requires for the microphone. */
-    fun setVoiceOpen(enabled: Boolean) {
+    fun setVoiceCommands(enabled: Boolean) {
         val allowed = enabled && capabilities.value.permissions.microphone
         viewModelScope.launch {
-            settingsRepository.update { it.copy(voiceOpenEnabled = allowed) }
+            settingsRepository.update { it.copy(voiceCommandsEnabled = allowed) }
             if (allowed) voiceService.start() else voiceService.stop()
         }
     }

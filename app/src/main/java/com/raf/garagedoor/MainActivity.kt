@@ -30,7 +30,7 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         val container = (application as GarageApplication).container
         lifecycleScope.launch {
-            val isWanted = container.automationSettings.current().voiceOpenEnabled
+            val isWanted = container.automationSettings.current().voiceCommandsEnabled
             if (isWanted && container.automationPermissions.status().microphone) VoiceCommandService.start(this@MainActivity)
         }
     }

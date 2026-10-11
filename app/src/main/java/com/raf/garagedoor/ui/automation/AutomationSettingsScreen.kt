@@ -48,7 +48,7 @@ class AutomationScreenActions(
     val onLeftOpenActionChange: (LeftOpenAction) -> Unit,
     val onLeftOpenMinutesChange: (Int) -> Unit,
     val onUseMobileDataChange: (Boolean) -> Unit,
-    val onVoiceOpenChange: (Boolean) -> Unit,
+    val onVoiceCommandsChange: (Boolean) -> Unit,
     val onOpenDiagnostics: () -> Unit,
     val permissionRequests: PermissionRequests,
 )
@@ -81,7 +81,7 @@ fun AutomationSettingsRoute(
         onLeftOpenActionChange = viewModel::setLeftOpenAction,
         onLeftOpenMinutesChange = viewModel::setLeftOpenMinutes,
         onUseMobileDataChange = viewModel::setUseMobileData,
-        onVoiceOpenChange = viewModel::setVoiceOpen,
+        onVoiceCommandsChange = viewModel::setVoiceCommands,
         onOpenDiagnostics = onOpenDiagnostics,
         permissionRequests = rememberPermissionRequests(onResult = viewModel::refreshCapabilities),
     )

@@ -29,7 +29,7 @@ import java.time.Instant
 import java.util.Locale
 
 /**
- * "Open garage door" by voice, with the phone locked and the app closed. Android only lets an app
+ * "Open garage door" / "Close garage door" by voice, with the phone locked and the app closed. Android only lets an app
  * use the microphone in the background from a foreground service that was started while the app
  * was on screen, so this service is started from the app and then stays running; it only opens the
  * microphone while [VoiceListeningGate] says the user is within 500 ft of the garage.
@@ -41,7 +41,7 @@ class VoiceCommandService : Service() {
     private val notifications: AutomationNotifications get() = container.automationNotifications
     private lateinit var listener: VoskPhraseListener
     private var gateWatch: Job? = null
-    private var lastOpenAt: Instant? = null
+    private var lastSent: Pair<DoorCommand, Instant>? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -80,7 +80,7 @@ class VoiceCommandService : Service() {
 
     private suspend fun followListeningGate() {
         combine(container.automationSettings.settings, container.presenceRepository.state, everyFewSeconds()) { settings, presence, _ ->
-            settings.voiceOpenEnabled to VoiceListeningGate.shouldListen(presence, container.clock.instant())
+            settings.voiceCommandsEnabled to VoiceListeningGate.shouldListen(presence, container.clock.instant())
         }.collect { (isEnabled, isNearGarage) ->
             if (!isEnabled) stopSelf() else applyListening(isNearGarage)
         }
@@ -103,19 +103,22 @@ class VoiceCommandService : Service() {
     }
 
     private fun onPhrase(heard: HeardPhrase) {
+        val command = VoicePhrases.commandIn(heard)
         when {
-            VoicePhrases.isOpenCommand(heard) -> openDoor(heard)
-            VoicePhrases.isNearMiss(heard) -> record("Voice: heard \"${heard.text}\" (${confidenceLabel(heard)}), not sure enough to open")
+            command != null -> send(command, heard)
+            VoicePhrases.isNearMiss(heard) -> record("Voice: heard \"${heard.text}\" (${confidenceLabel(heard)}), not sure enough to act")
         }
     }
 
-    private fun openDoor(heard: HeardPhrase) {
+    /** The same command again within [REPEAT_COOLDOWN] is an echo or a repeat; the other command always goes through. */
+    private fun send(command: DoorCommand, heard: HeardPhrase) {
         val now = container.clock.instant()
-        if (lastOpenAt?.let { Duration.between(it, now) < REPEAT_COOLDOWN } == true) return
-        lastOpenAt = now
+        val isRepeat = lastSent?.let { (previous, at) -> previous == command && Duration.between(at, now) < REPEAT_COOLDOWN } == true
+        if (isRepeat) return
+        lastSent = command to now
         acknowledgeWithTone()
-        DoorCommandWorker.enqueue(this, DoorCommand.OPEN, REASON)
-        record("Voice: heard \"${heard.text}\" (${confidenceLabel(heard)}), opening")
+        DoorCommandWorker.enqueue(this, command, REASON)
+        record("Voice: heard \"${heard.text}\" (${confidenceLabel(heard)}), ${if (command == DoorCommand.OPEN) "opening" else "closing"}")
     }
 
     /** ToneGenerator reports a busy or missing audio device only as a RuntimeException; the door opens anyway. */
@@ -133,7 +136,7 @@ class VoiceCommandService : Service() {
     }
 
     private fun confidenceLabel(heard: HeardPhrase): String {
-        val confidence = VoicePhrases.openPhraseConfidence(heard) ?: heard.words.minOfOrNull { it.confidence } ?: 0.0
+        val confidence = VoicePhrases.phraseIn(heard)?.confidence ?: heard.words.minOfOrNull { it.confidence } ?: 0.0
         return "confidence ${String.format(Locale.US, "%.2f", confidence)}"
     }
 

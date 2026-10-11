@@ -100,12 +100,12 @@
     <string name="countdown_seconds">%1$d s</string>
     <string name="countdown_explanation">A notification lets you cancel during the countdown. For opening, the countdown starts early based on your speed, so the door still begins moving at your radius.</string>
 
-    <string name="voice_waiting">Voice: say \"Open garage door\" within 500 ft of the garage</string>
-    <string name="voice_listening">Listening for \"Open garage door\"</string>
+    <string name="voice_waiting">Voice: say \"Open garage door\" or \"Close garage door\" within 500 ft of the garage</string>
+    <string name="voice_listening">Listening for \"Open garage door\" or \"Close garage door\"</string>
     <string name="voice_paused_title">Voice command paused</string>
     <string name="voice_paused_body">Android stopped it after a restart or update. Tap to open the app and turn it back on.</string>
-    <string name="voice_title">Voice: \"Open garage door\"</string>
-    <string name="voice_detail">Opens the door when you say \"Open garage door\", even with the phone locked, but only while a recent location reading puts you within 500 ft of the garage. Recognition happens on the phone; no audio is sent or saved. Needs hands-free on for location readings. After a phone restart, open the app once to turn listening back on.</string>
+    <string name="voice_title">Voice: \"Open / Close garage door\"</string>
+    <string name="voice_detail">Opens or closes the door when you say \"Open garage door\" or \"Close garage door\" (\"the\" is optional), even with the phone locked, but only while a recent location reading puts you within 500 ft of the garage. Recognition happens on the phone; no audio is sent or saved. Needs hands-free on for location readings. After a phone restart, open the app once to turn listening back on.</string>
     <string name="voice_allow_microphone">Allow microphone</string>
     <string name="away_open_action">Open garage</string>
     <string name="power_saving_title">Power saving is on</string>

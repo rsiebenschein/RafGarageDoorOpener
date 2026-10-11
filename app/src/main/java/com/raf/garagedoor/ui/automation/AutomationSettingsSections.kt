@@ -161,7 +161,7 @@ fun VoiceCommandCard(state: AutomationUiState, actions: AutomationScreenActions)
                 Text(stringResource(R.string.voice_title), style = MaterialTheme.typography.titleMedium)
                 Text(stringResource(R.string.voice_detail), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Switch(checked = state.settings.voiceOpenEnabled, onCheckedChange = actions.onVoiceOpenChange, enabled = hasMicrophone)
+            Switch(checked = state.settings.voiceCommandsEnabled, onCheckedChange = actions.onVoiceCommandsChange, enabled = hasMicrophone)
         }
         if (!hasMicrophone) OutlinedButton(onClick = actions.permissionRequests.microphone) { Text(stringResource(R.string.voice_allow_microphone)) }
     }

@@ -6,7 +6,8 @@ Personal Android app (built for a Galaxy S23 Ultra) for a Chamberlain myQ garage
 - **Home-screen widget** (1x1 up to a 4x1 strip) with status and a tap-twice open/close button
 - **Hands-free**: opens the door as you arrive and closes it after you leave
 - **Left-open monitor**: reminds you, or closes the door, when it has been open too long
-- **Voice**: say "Open garage door" with the phone locked, only within 500 ft of the garage
+- **Voice**: say "Open garage door" or "Close garage door" with the phone locked, only within
+  500 ft of the garage
 - **Lock-screen Open button** on the away notification
 
 Not affiliated with Chamberlain Group. myQ has no public API. This app uses the same unofficial
@@ -93,11 +94,15 @@ While the away watch runs ("Away: watching for your return"), its notification h
 garage** button. It shows on the lock screen, so one tap opens the door without unlocking.
 Anyone holding your phone can use it, the same as the voice command.
 
-### Voice: "Open garage door" (optional)
+### Voice: "Open / Close garage door" (optional)
 
-Turn on *Voice: "Open garage door"* in Hands-free settings (it asks for the microphone). Saying
-"Open garage door" or "Open the garage door" then opens the door, with the phone locked and the
-app closed, but only within 500 ft of the garage:
+Turn on *Voice: "Open / Close garage door"* in Hands-free settings. When it asks for the
+microphone, choose **While using the app** (Android has no "always" for the microphone; the
+listener is started while the app is open, and that is enough for it to keep listening with the
+phone locked). Avoid "Only this time", which Android takes back soon after you leave the app.
+
+Saying "Open garage door" or "Close garage door" ("the" is optional) then opens or closes the
+door, with the phone locked and the app closed, but only within 500 ft of the garage:
 
 - **When it listens**: only while a location reading from the last 2 minutes puts you within
   500 ft. Those readings come from hands-free (the away watch uses GPS every 2 s near home, the
@@ -107,7 +112,8 @@ app closed, but only within 500 ft of the garage:
 - **On the phone only**: speech is recognized offline (Vosk, small English model, about 70 MB
   unpacked). No audio is sent anywhere or saved. Android shows the microphone indicator while it
   listens.
-- **Feedback**: a short tone, then the usual result notification. Repeats within 30 s are ignored.
+- **Feedback**: a short tone, then the usual result notification. Saying the same command again
+  within 30 s is ignored; the other command always goes through.
 - **After a phone restart or app update**, Android does not let an app reopen the microphone in
   the background. A "Voice command paused" notification appears; tap it (or open the app) once.
 - **Tuning**: Diagnostics logs "Voice: listening" / "stopped listening", every phrase it acts on
