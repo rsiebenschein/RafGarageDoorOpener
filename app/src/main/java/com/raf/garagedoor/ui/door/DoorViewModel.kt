@@ -12,6 +12,7 @@ import com.raf.garagedoor.door.DoorStatusSnapshot
 import com.raf.garagedoor.door.GarageDoor
 import com.raf.garagedoor.door.GarageDoorControlException
 import com.raf.garagedoor.door.GarageDoorController
+import com.raf.garagedoor.network.RoutineStatusCheck
 import com.raf.garagedoor.ui.appContainer
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -93,7 +94,7 @@ class DoorViewModel(
 
     private suspend fun refreshDoors() {
         try {
-            val doors = withMovementShown(controller.listDoors(), currentSnapshot())
+            val doors = withMovementShown(RoutineStatusCheck.run { controller.listDoors() }, currentSnapshot())
             mutableState.update { it.copy(doors = doors, isLoading = false) }
         } catch (error: GarageDoorControlException) {
             showError(error)

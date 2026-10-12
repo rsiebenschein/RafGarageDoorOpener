@@ -6,7 +6,7 @@ Personal Android app (built for a Galaxy S23 Ultra) for a Chamberlain myQ garage
 - **Home-screen widget** (1x1 up to a 4x1 strip) with status and a tap-twice open/close button
 - **Hands-free**: opens the door as you arrive and closes it after you leave
 - **Left-open monitor**: reminds you, or closes the door, when it has been open too long
-- **Voice**: say "Open garage door" or "Close garage door" with the phone locked, only within
+- **Voice**: say "Open the garage" or "Close the garage" with the phone locked, only within
   500 ft of the garage
 - **Lock-screen Open button** on the away notification
 
@@ -65,10 +65,13 @@ The app keeps track of whether you are **Home** or **Away**:
 - Automatic myQ commands are retried up to 5 times over about a minute, so a weak Wi-Fi signal or
   a Wi-Fi to cellular handoff at the edge of the property does not lose the command. If all
   attempts fail, a notification offers **Open now** / **Close now**.
-- **Use mobile data for the door** (on by default, in Hands-free settings): every myQ request goes
-  over mobile data even while Wi-Fi is connected, with Wi-Fi as the backup, so weak home Wi-Fi
-  that is connected but has no internet cannot block a command. It is never used while roaming,
-  and a request is only a few KB. Diagnostics records which network myQ is using and why.
+- **Use mobile data for the door** (on by default, in Hands-free settings): door commands, and
+  the status read just before each, go over mobile data even while Wi-Fi is connected, with Wi-Fi
+  as the backup, so weak home Wi-Fi that is connected but has no internet cannot block a command.
+  Routine status checks (the left-open check every few minutes, the widget refresh, the app
+  screen) go the other way round, Wi-Fi first, so mobile data is not woken every few minutes at
+  home (field test 5). Never used while roaming; a request is only a few KB. Diagnostics records
+  which network door commands use and why.
 - With a countdown set, a notification lets you cancel. For opening, the countdown starts early
   based on your speed, so the door still begins moving at your radius.
 
@@ -84,9 +87,11 @@ It starts at 1x1; long-press it and drag the handles to widen it up to a 4x1 str
 - **Tap twice**: the first tap shows "Tap again" for 4 seconds; the second sends the command, so
   a stray touch cannot move the door. No unlock or app launch needed.
 - Opening from the widget starts the departure check and left-open timer, like the app button.
-- **Freshness**: the widget updates whenever the app talks to myQ (every command, the left-open
-  check every few minutes, the app screen), every 3 seconds while the door moves after a
-  command, and every 30 minutes otherwise. A wall-button change can take a few minutes to show.
+- **Freshness**: the widget is fed by every myQ read (every command, the left-open check every few
+  minutes, the app screen) and redraws only when the door's state or last-change time actually
+  changed (field test 5: redrawing on every read was the app's largest battery cost). It is
+  followed every 3 seconds while the door moves after a command, and Android refreshes it every
+  30 minutes. A wall-button change can take a few minutes to show.
 
 ### Lock-screen Open button
 
@@ -94,31 +99,36 @@ While the away watch runs ("Away: watching for your return"), its notification h
 garage** button. It shows on the lock screen, so one tap opens the door without unlocking.
 Anyone holding your phone can use it, the same as the voice command.
 
-### Voice: "Open / Close garage door" (optional)
+### Voice: "Open / Close the garage" (optional)
 
-Turn on *Voice: "Open / Close garage door"* in Hands-free settings. When it asks for the
+Turn on *Voice: "Open / Close the garage"* in Hands-free settings. When it asks for the
 microphone, choose **While using the app** (Android has no "always" for the microphone; the
 listener is started while the app is open, and that is enough for it to keep listening with the
 phone locked). Avoid "Only this time", which Android takes back soon after you leave the app.
 
-Saying "Open garage door" or "Close garage door" ("the" is optional) then opens or closes the
-door, with the phone locked and the app closed, but only within 500 ft of the garage:
+Saying "Open the garage" or "Close the garage" ("the" and "door" are both optional) then opens or
+closes the door, with the phone locked and the app closed, but only within 500 ft of the garage:
 
-- **When it listens**: only while a location reading from the last 2 minutes puts you within
-  500 ft. Those readings come from hands-free (the away watch uses GPS every 2 s near home, the
-  departure check, the hands-free screen). With the phone lying still at home, the reading goes
-  stale and the microphone closes, so a TV or a conversation indoors cannot open the door.
-  Hands-free must be on.
+- **When it listens** (only with hands-free on):
+  - **Arriving or leaving**: while a hands-free location reading from the last 2 minutes puts you
+    within 500 ft (the away watch uses GPS every 2 s near home; also the departure check and the
+    Hands-free screen).
+  - **At home**: for **1 minute after you wake the screen or open the app**, if hands-free has you
+    at home and one quick Wi-Fi/cell reading puts you within 500 ft. Wake the phone, then speak; it
+    keeps listening for the minute even if the lock screen turns itself off.
+  - Otherwise, with the phone lying still, it does not listen, so a TV or a conversation indoors
+    cannot open the door and the microphone does not run all day.
+- **Is it listening?** The ongoing notification's title says **Voice: listening now** or **Voice:
+  not listening now**, and Android shows its microphone indicator while it listens.
 - **On the phone only**: speech is recognized offline (Vosk, small English model, about 70 MB
-  unpacked). No audio is sent anywhere or saved. Android shows the microphone indicator while it
-  listens.
+  unpacked). No audio is sent anywhere or saved.
 - **Feedback**: a short tone, then the usual result notification. Saying the same command again
   within 30 s is ignored; the other command always goes through.
 - **After a phone restart or app update**, Android does not let an app reopen the microphone in
   the background. A "Voice command paused" notification appears; tap it (or open the app) once.
-- **Tuning**: Diagnostics logs "Voice: listening" / "stopped listening", every phrase it acts on
-  and near misses, each with a confidence score. A command needs each of its words heard with
-  confidence 0.6 or more (`VoicePhrases.MIN_WORD_CONFIDENCE`).
+- **Tuning**: Diagnostics logs "Voice: listening (within 500 ft: reason)" / "stopped listening",
+  every phrase it acts on and near misses, each with a confidence score. A command needs each of
+  its words heard with confidence 0.6 or more (`VoicePhrases.MIN_WORD_CONFIDENCE`).
 
 ### Car Bluetooth (optional)
 
@@ -137,9 +147,10 @@ minutes. It works with the app closed and hands-free off, and lands on time:
 - The open time comes from myQ, so it counts from when the door actually opened. Since a check
   always falls inside the limit, the first check that sees the open door queues one for the exact
   deadline. Opening from the app, the widget, a notification, by voice or by hands-free queues it
-straight away. Reminders show
-**Close** and **Ignore**. Ignore silences reminders until the door next closes. Otherwise a
-reminder repeats every 30 minutes while the door stays open.
+  straight away.
+- Each check is one small request over Wi-Fi (mobile data only if Wi-Fi fails).
+- Reminders show **Close** and **Ignore**. Ignore silences reminders until the door next closes.
+  Otherwise a reminder repeats every 30 minutes while the door stays open.
 
 ---
 
@@ -186,7 +197,7 @@ adb uninstall com.raf.garagedoor.test
    - **Power saving off** (Settings → Battery → Power saving). While it is on, Android turns GPS
      off whenever the screen is off and the door opens late; the app shows a red card if it is on.
 5. Turn on **Auto open & close**. Optionally set countdowns, car Bluetooth and the left-open monitor.
-6. Optional: turn on **Voice: "Open / Close garage door"** and allow the microphone **While using
+6. Optional: turn on **Voice: "Open / Close the garage"** and allow the microphone **While using
    the app**. *Use mobile data for the door* is on by default; leave it on unless you want myQ
    requests to use Wi-Fi only.
 
@@ -230,15 +241,19 @@ Without a key the app still builds; the map is just blank.
   Android turns GPS off with the screen off and arrivals open late (field test 4). Diagnostics
   also notes it on every tracking session.
 - *Which network myQ used*: Diagnostics logs "myQ requests now go over mobile data" or "... over
-  Wi-Fi (or the phone's default network): reason" whenever it changes, and "myQ over mobile data
-  failed, trying Wi-Fi" on a failure.
-- *Voice does nothing*: check Diagnostics for "Voice: listening". If it never appears, you were
-  not within 500 ft with a fresh reading (hands-free must be on), the microphone permission is
-  missing, or the "Voice command paused" notification needs a tap. If it shows "heard ... not sure
-  enough to act", the confidence was below 0.6.
+  Wi-Fi (or the phone's default network): reason" whenever it changes for door commands, and "myQ
+  over mobile data failed, trying Wi-Fi" on a failure. Routine status checks are not logged.
+- *Voice does nothing*: look at the voice notification's title first. "Not listening now" at home
+  means no screen wake in the last minute (wake the screen, then speak). Then check Diagnostics
+  for "Voice: listening". If it never appears, you were not within 500 ft (hands-free must be on
+  and have you at home), the microphone permission is missing, or the "Voice command paused"
+  notification needs a tap. If it shows "heard ... not sure enough to act", the confidence was
+  below 0.6.
 - *Battery*: Samsung's per-app percentage is the app's share of the battery *used* since the last
-  charge, not of the whole battery. In field test 4, 3.9% there was about 21 mAh over 5 hours
-  (0.4% of the battery).
+  charge, not of the whole battery. For real numbers, `adb shell dumpsys batterystats` (UID
+  u0a859; see the field test log). In field test 5, a full day off the charger, the app used 52 mAh
+  (about 1% of the battery) while the phone used 2,804 mAh; that day's waste (widget redraws,
+  mobile data woken every 5 minutes) is fixed.
 
 ## When myQ changes something
 
@@ -258,9 +273,11 @@ board wired to the opener) can replace the myQ cloud without touching the UI or 
 | `geofence` | Garage location, radii, distance math |
 | `automation` | Home/away engine, tracking service, triggers, executor, logs |
 | `automation/leftopen` | Left-open monitor and its background worker |
-| `automation/voice` | Voice command: 500 ft gate, phrase matching, offline recognizer, microphone service |
+| `automation/voice` | Voice command: 500 ft gate (hands-free readings or a screen wake at home), phrase matching, offline recognizer, microphone service |
+| `location` | Fused location: GPS/low-power streams for sessions, one-shot readings (map pin, voice screen wake) |
 | `bluetooth` | Car connection tracking |
-| `network` | Sending myQ requests over mobile data first, Wi-Fi as backup, never roaming |
+| `network` | Door commands over mobile data first and routine checks over Wi-Fi first, each with the other as backup; never roaming |
+| `storage` | Encrypted myQ token storage (Android Keystore) |
 | `widget` | Home-screen widget (Glance), its status snapshot and tap handling |
 | `ui` | Compose screens |
 
@@ -270,7 +287,10 @@ board wired to the opener) can replace the myQ cloud without touching the UI or 
 2. Geofence editor: map pin plus adjustable open/close radius in feet ✅
 3. Hands-free open and close, left-open monitor, diagnostics ✅ (field testing)
 4. Home-screen widget ✅ (field testing), Quick Settings tile
-5. Voice open/close within 500 ft, lock-screen Open button, myQ over mobile data ✅ (field testing)
-6. Ideas, not started: Quick Settings tile; wall-button detection without myQ (ratgdo); Tesla
+5. Voice open/close within 500 ft, lock-screen Open button, myQ over mobile data ✅ (field testing;
+   battery waste and voice at home fixed after field test 5)
+6. Next candidates: keep the away watch running when one reading right after leaving lands back
+   inside the close radius (field test 5, 16:37); end departure checks early when the user stays
+   home (saves GPS, risks the close). Ideas, not started: Quick Settings tile; wall-button detection without myQ (ratgdo); Tesla
    (myQ's own Tesla integration, or a browser page with a small server). See the field test log
    for what was looked into.

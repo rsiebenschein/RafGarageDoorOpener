@@ -21,6 +21,18 @@ class VoicePhrasesTest {
     }
 
     @Test
+    fun `door is optional`() {
+        assertEquals(DoorCommand.OPEN, VoicePhrases.commandIn(heard("open" to 0.9, "the" to 0.9, "garage" to 0.95)))
+        assertEquals(DoorCommand.CLOSE, VoicePhrases.commandIn(heard("[unk]" to 0.5, "close" to 0.8, "garage" to 0.9)))
+    }
+
+    @Test
+    fun `confidence covers the door word when it was said`() {
+        val heard = heard("open" to 1.0, "the" to 1.0, "garage" to 1.0, "door" to 0.65)
+        assertEquals(VoiceCommand(DoorCommand.OPEN, 0.65), VoicePhrases.phraseIn(heard))
+    }
+
+    @Test
     fun `phrase after unknown words still counts, scored on its own words`() {
         val heard = heard("[unk]" to 0.2, "open" to 0.8, "the" to 0.79, "garage" to 0.95, "door" to 1.0)
         assertEquals(VoiceCommand(DoorCommand.OPEN, 0.79), VoicePhrases.phraseIn(heard))
@@ -57,7 +69,8 @@ class VoicePhrasesTest {
 
     @Test
     fun `grammar lists the phrases and the unknown word`() {
-        val expected = "[\"open garage door\", \"open the garage door\", \"close garage door\", \"close the garage door\", \"[unk]\"]"
+        val expected = "[\"open the garage door\", \"open garage door\", \"open the garage\", \"open garage\", " +
+            "\"close the garage door\", \"close garage door\", \"close the garage\", \"close garage\", \"[unk]\"]"
         assertEquals(expected, VoicePhrases.GRAMMAR)
     }
 

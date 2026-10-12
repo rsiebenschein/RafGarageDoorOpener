@@ -29,14 +29,17 @@ class DoorStatusSnapshotStore(context: Context) {
 
     suspend fun current(): DoorStatusSnapshot = status.first()
 
-    /** Applies [transform] atomically; returns whether anything changed. */
+    /**
+     * Applies [transform] atomically; returns whether anything changed. Compares what is stored, not
+     * the snapshots: myQ times carry more than millisecond precision, which the store drops, so
+     * comparing snapshots reported a change on every myQ read and redrew the widget each time.
+     */
     suspend fun update(transform: (DoorStatusSnapshot) -> DoorStatusSnapshot): Boolean {
         var changed = false
         dataStore.edit { preferences ->
-            val before = toStatus(preferences)
-            val after = transform(before)
-            changed = after != before
-            if (changed) write(preferences, after)
+            val before = preferences.toPreferences()
+            write(preferences, transform(toStatus(before)))
+            changed = preferences != before
         }
         return changed
     }

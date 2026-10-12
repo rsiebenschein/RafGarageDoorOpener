@@ -100,19 +100,21 @@
     <string name="countdown_seconds">%1$d s</string>
     <string name="countdown_explanation">A notification lets you cancel during the countdown. For opening, the countdown starts early based on your speed, so the door still begins moving at your radius.</string>
 
-    <string name="voice_waiting">Voice: say \"Open garage door\" or \"Close garage door\" within 500 ft of the garage</string>
-    <string name="voice_listening">Listening for \"Open garage door\" or \"Close garage door\"</string>
+    <string name="voice_waiting_title">Voice: not listening now</string>
+    <string name="voice_waiting">It listens within 500 ft of the garage: while you arrive or leave, or for a minute after you wake the screen or open the app at home.</string>
+    <string name="voice_listening_title">Voice: listening now</string>
+    <string name="voice_listening">Say \"Open the garage\" or \"Close the garage\"</string>
     <string name="voice_paused_title">Voice command paused</string>
     <string name="voice_paused_body">Android stopped it after a restart or update. Tap to open the app and turn it back on.</string>
-    <string name="voice_title">Voice: \"Open / Close garage door\"</string>
-    <string name="voice_detail">Opens or closes the door when you say \"Open garage door\" or \"Close garage door\" (\"the\" is optional), even with the phone locked, but only while a recent location reading puts you within 500 ft of the garage. Recognition happens on the phone; no audio is sent or saved. Needs hands-free on for location readings. After a phone restart, open the app once to turn listening back on.</string>
+    <string name="voice_title">Voice: \"Open / Close the garage\"</string>
+    <string name="voice_detail">Opens or closes the door when you say \"Open the garage\" or \"Close the garage\" (\"door\" is optional), even with the phone locked, but only within 500 ft of the garage: while hands-free is watching you arrive or leave, or for a minute after you wake the screen or open the app at home. Otherwise, with the phone lying still, it does not listen. Recognition happens on the phone; no audio is sent or saved. Needs hands-free on. After a phone restart, open the app once to turn listening back on.</string>
     <string name="voice_allow_microphone">Allow microphone</string>
     <string name="away_open_action">Open garage</string>
     <string name="power_saving_title">Power saving is on</string>
     <string name="power_saving_detail">While it is on, Android turns GPS off whenever the screen is off. The app then only sees rough Wi-Fi positions, so the door opens late (in field test 4 it opened at 45 ft instead of about 135 ft). Turn Power saving off for hands-free to work well.</string>
     <string name="power_saving_open_settings">Open Power saving settings</string>
     <string name="mobile_data_title">Use mobile data for the door</string>
-    <string name="mobile_data_detail">Sends every myQ request over mobile data, even on Wi-Fi, so weak home Wi-Fi at the edge of range can\'t block a command. Wi-Fi is the backup. Never used while roaming. A request uses a few KB.</string>
+    <string name="mobile_data_detail">Sends door commands over mobile data, even on Wi-Fi, so weak home Wi-Fi at the edge of range can\'t block them. Wi-Fi is the backup. Routine status checks use Wi-Fi first to save battery. Never used while roaming. A request uses a few KB.</string>
     <string name="car_title">Only auto-open in my car</string>
     <string name="car_detail">Opens only while your phone is connected to the car you pick. Auto-close still works on foot.</string>
     <string name="car_allow_bluetooth">Allow Bluetooth access</string>

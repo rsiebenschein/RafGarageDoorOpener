@@ -13,6 +13,7 @@ import com.raf.garagedoor.door.DoorCommand
 import com.raf.garagedoor.door.DoorState
 import com.raf.garagedoor.door.GarageDoorControlException
 import com.raf.garagedoor.door.GarageDoorController
+import com.raf.garagedoor.network.RoutineStatusCheck
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
 import java.time.Duration
@@ -42,7 +43,7 @@ class DoorStatusWorker(context: Context, parameters: WorkerParameters) : Corouti
 
     /** A failed read is skipped; the next one (or the next left-open check) catches up. */
     private suspend fun readState(controller: GarageDoorController): DoorState? = try {
-        controller.listDoors().firstOrNull()?.state
+        RoutineStatusCheck.run { controller.listDoors() }.firstOrNull()?.state
     } catch (unreachable: GarageDoorControlException) {
         null
     }

@@ -50,15 +50,18 @@ class AutomationNotifications(private val context: Context) : AutomationAlerts {
     }
 
     /** Ongoing notification of the voice service; says whether the microphone is open right now. */
-    fun voiceNotification(isListening: Boolean): Notification =
-        NotificationCompat.Builder(context, TRACKING_CHANNEL)
+    fun voiceNotification(isListening: Boolean): Notification {
+        val text = context.getString(if (isListening) R.string.voice_listening else R.string.voice_waiting)
+        return NotificationCompat.Builder(context, TRACKING_CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_garage)
-            .setContentTitle(context.getString(R.string.app_name))
-            .setContentText(context.getString(if (isListening) R.string.voice_listening else R.string.voice_waiting))
+            .setContentTitle(context.getString(if (isListening) R.string.voice_listening_title else R.string.voice_waiting_title))
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setContentIntent(openAppIntent())
             .setOngoing(true)
             .setSilent(true)
             .build()
+    }
 
     fun updateVoiceNotification(isListening: Boolean) = notifyIfAllowed(VOICE_NOTIFICATION_ID, voiceNotification(isListening))
 

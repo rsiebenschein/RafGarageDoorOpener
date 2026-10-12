@@ -12,6 +12,7 @@ import com.raf.garagedoor.door.GarageDoor
 import com.raf.garagedoor.door.GarageDoorControlException
 import com.raf.garagedoor.door.GarageDoorController
 import com.raf.garagedoor.door.TransientRetry
+import com.raf.garagedoor.network.RoutineStatusCheck
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
@@ -44,7 +45,7 @@ class LeftOpenMonitor(
         val current = settings.current()
         if (current.leftOpenAction == LeftOpenAction.OFF) return LeftOpenOutcome.None
         val door = try {
-            retry.run { controller.listDoors() }.firstOrNull()
+            RoutineStatusCheck.run { retry.run { controller.listDoors() } }.firstOrNull()
         } catch (error: GarageDoorControlException) {
             diagnostics.record("Left-open check could not reach myQ: ${error.message}")
             return LeftOpenOutcome.None

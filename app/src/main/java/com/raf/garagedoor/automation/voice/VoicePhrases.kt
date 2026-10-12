@@ -18,14 +18,20 @@ data class VoiceCommand(val command: DoorCommand, val confidence: Double)
  * ordinary speech mostly comes out as "[unk]". It does not hold to whole phrases, though: on the
  * phone, "Open garage door" came out as "[unk] open garage door" and "Is the door open" as
  * "[unk] the door open". So a command needs one phrase as consecutive words, each heard with
- * reasonable confidence; the words around it do not matter.
+ * reasonable confidence; the words around it do not matter. "Open the garage" (no "door") is what
+ * came naturally in field test 5, so "door" and "the" are both optional.
  */
 object VoicePhrases {
+    /** Longest first, so the confidence logged covers every word said. "door" is optional (field test 5). */
     val PHRASES: Map<String, DoorCommand> = mapOf(
-        "open garage door" to DoorCommand.OPEN,
         "open the garage door" to DoorCommand.OPEN,
-        "close garage door" to DoorCommand.CLOSE,
+        "open garage door" to DoorCommand.OPEN,
+        "open the garage" to DoorCommand.OPEN,
+        "open garage" to DoorCommand.OPEN,
         "close the garage door" to DoorCommand.CLOSE,
+        "close garage door" to DoorCommand.CLOSE,
+        "close the garage" to DoorCommand.CLOSE,
+        "close garage" to DoorCommand.CLOSE,
     )
     const val MIN_WORD_CONFIDENCE = 0.6
 

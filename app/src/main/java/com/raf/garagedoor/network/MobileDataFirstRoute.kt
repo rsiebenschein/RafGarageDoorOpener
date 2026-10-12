@@ -2,6 +2,7 @@ package com.raf.garagedoor.network
 
 import android.net.Network
 import com.raf.garagedoor.myq.http.MyQHttpRoute
+import kotlinx.coroutines.currentCoroutineContext
 import okhttp3.Dns
 import okhttp3.OkHttpClient
 import java.io.IOException
@@ -9,7 +10,8 @@ import java.net.InetAddress
 import java.time.Duration
 
 /**
- * Sends myQ calls over mobile data first and falls back to the default network (usually Wi-Fi).
+ * Sends myQ calls over mobile data first and falls back to the default network (usually Wi-Fi);
+ * routine status checks ([RoutineStatusCheck]) go the other way round.
  * Field tests saw the phone stay connected to weak home Wi-Fi with no internet at the edge of
  * range, so a hands-free close failed until Wi-Fi was turned off. Sending again over Wi-Fi after a
  * mobile failure is safe: myQ's open and close are "go to this state", not toggles.
@@ -28,6 +30,7 @@ class MobileDataFirstRoute(
 
     override suspend fun <T> call(send: (OkHttpClient) -> T): T {
         if (!isMobileDataAllowed()) return sendOverDefault("mobile data switched off in settings", send)
+        if (RoutineStatusCheck.isActiveIn(currentCoroutineContext())) return sendRoutineCheck(send)
         return mobileData.use { access ->
             when (access) {
                 is MobileDataAccess.Ready -> sendOverMobileFirst(access.network, send)
@@ -42,6 +45,13 @@ class MobileDataFirstRoute(
         mobileData.skipAfterFailedCall()
         record("myQ over mobile data failed, trying Wi-Fi: ${mobileFailed.message}")
         sendOverDefault("mobile data call failed", send)
+    }
+
+    /** Wi-Fi first, mobile data only if that fails; no route note, so checks do not flood Diagnostics. */
+    private suspend fun <T> sendRoutineCheck(send: (OkHttpClient) -> T): T = try {
+        send(defaultClient)
+    } catch (defaultFailed: IOException) {
+        mobileData.use { access -> if (access is MobileDataAccess.Ready) send(clientFor(access.network)) else throw defaultFailed }
     }
 
     private suspend fun <T> sendOverDefault(reason: String, send: (OkHttpClient) -> T): T {

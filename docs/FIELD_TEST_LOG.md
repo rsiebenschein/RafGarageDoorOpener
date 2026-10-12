@@ -53,6 +53,99 @@ $ADB shell dumpsys activity service com.google.android.gms/com.google.android.lo
 
 ---
 
+## Test 5: a full day on battery, 2026-10-11 00:32 to 20:00
+
+**Settings:** as in test 4 (open within 135 ft, close beyond 200 ft, left-open *Remind me* after
+5 min), Power saving **off**, voice on, *Use mobile data for the door* on. Unplugged at 100% at
+00:32, plugged in at 40% at about 20:00.
+
+**What the user saw:** leaving and coming home opened and closed the door every time. The
+battery drained much faster than usual. Voice "worked last night but not all day": saying "Open
+the garage" or "Close the garage" did nothing with the phone asleep, on the home screen or with
+the app open, although the notification seemed to say it was listening.
+
+**Hands-free (all worked):**
+
+| Time | Event |
+|---|---|
+| 09:51:23 | Opened from the widget; departure check started |
+| 09:52:15 | CLOSE at 218 ft (±13 ft, 9.1 m/s); closed 1 s later over mobile data with Wi-Fi on (the test 4 Wi-Fi-edge failure did not recur) |
+| 12:12:50 | OPEN at 114 ft (±12 ft, 5.9 m/s); opened 1 s later. On the radius now that Power saving is off |
+| 16:32:53 | Voice "open garage door" (confidence 1.00) opened the door; departure check started |
+| 16:37:17 | CLOSE at 226 ft (±12 ft) |
+| 16:37:36 | Voice heard "[unk] garage door" (0.62), not acted on |
+| 16:37:37 | A fix at 156 ft (15.7 m/s) put the zone back to HOME without opening (not armed) and ended the away watch; the home-fence EXIT 1 minute later (3,028 ft) restarted it. Harmless here, but a route that passes back inside the close radius relies on that geofence |
+| 18:17:03 | OPEN at 121 ft (±12 ft); opened 1 s later |
+| 18:22:44 | Left-open reminder "Open 5 min" (door opened 18:17:04); closed from the reminder |
+
+**Battery (Android's batterystats, since unplugging):** the phone used 2,804 mAh (56% of the
+battery) with the screen on 3 h 15 min. Biggest users: Android system 308 mAh, a game 294 mAh,
+Facebook 138 mAh, Copy Me That 136 mAh. **This app: 52 mAh, about 1% of the battery** (1.9% of
+what was used):
+
+| Part | mAh | What it was |
+|---|---|---|
+| Wake locks | 31.5 | 46 min held: **home-screen widget redraws 19.5 min (156 times)**, location scans 13 min, microphone 10 min, left-open checks 1.6 min |
+| GPS | 9.1 | 14 min; 10 of them were two departure checks at home that timed out (15:43, 16:14: activity recognition thought the user started moving) |
+| Microphone | 5.9 | 31 min of listening in total |
+| CPU | 5.2 | |
+| Not in the app's total | | Mobile radio active 14 min 40 s in 228 bursts (Android does not cost this phone's radio), 470 Wi-Fi scans |
+
+**Root causes:**
+
+1. **The widget redrew after every myQ read.** myQ's timestamps carry more than millisecond
+   precision, the snapshot store keeps milliseconds, and it compared snapshots rather than what it
+   stores, so every read looked like a change. Each redraw runs a widget session (a background job
+   of up to 45 s). With the left-open check reading myQ every 5 minutes, that was the app's
+   largest battery item. Reproduced on the phone: a forced left-open check was followed by a
+   widget session every time.
+2. **Mobile data was brought up every 5 minutes at home.** The left-open check runs every 5
+   minutes day and night (the limit is 5 minutes), and *mobile data first* raised mobile data for
+   each one while on Wi-Fi, then dropped it (logcat: "[CELLULAR] disconnected"). Overnight it
+   mostly failed ("no mobile network came up within 3 s"), each time after waiting up to 3 s.
+3. **Voice phrases needed "door".** "Open the garage" was not in the grammar. Diagnostics shows
+   voice did work when the full phrase was said (00:19 to 00:24, 16:32).
+4. **Voice did not listen at home with the phone still**, by design (it needs a location reading
+   from the last 2 minutes within 500 ft, which only comes during hands-free sessions or on the
+   Hands-free screen). Its notification said "Voice: say ... within 500 ft", which read as if it
+   were listening.
+
+**Fixes (verified on the phone the same evening):**
+
+- The snapshot store compares the stored values (`DoorStatusSnapshotStore.update`). A forced
+  left-open check no longer starts a widget session.
+- **Routine status checks go over Wi-Fi first** (`network/RoutineStatusCheck`): the left-open
+  check, the widget refresh and the app screen's polling. Mobile data is only their backup.
+  Door commands, and the reads just before them (hands-free, voice, notifications, widget), still
+  go over mobile data first. A forced left-open check now resolves myQ over Wi-Fi and asks for no
+  mobile network.
+- Voice phrases: "open/close garage", with "the" and "door" both optional. On-device sample test:
+  12 of 12 right, including "Open the garage", "Open garage", "Close the garage", and "The garage is
+  open" doing nothing.
+- **Voice at home:** waking the screen or opening the app while hands-free has the user at home
+  takes one cheap Wi-Fi/cell location reading; within 500 ft (and ±330 ft or better) it listens
+  for 1 minute. Verified: screen woken with stale readings, "Voice: listening (within 500 ft:
+  screen woken at home)" about 3 s later. A first version stopped when the screen went off, and
+  the lock screen turned itself off after about 6 s, too short to speak; it now keeps the full
+  minute.
+- The voice notification title now says **Voice: listening now** or **Voice: not listening now**,
+  and Diagnostics says why it started listening.
+
+**Not changed, on purpose:**
+
+- Ending departure checks early when the user stays home would save about 3 min of GPS per false
+  start (2 today), but it could miss the close that now works. Left alone.
+- Listening all the time at home is still rejected (TV or a conversation). Today's figures put the
+  microphone at very roughly 10 to 25 mAh per hour, so all day at home would cost about 3 to 7% of
+  the battery.
+- The left-open check stays every 5 minutes, so reminders stay on time; each check is now one
+  Wi-Fi request.
+
+**Check next:** the app's mAh in `dumpsys batterystats` after a similar day (expect well under
+today's 52 mAh), and voice from the house: wake the screen, then say "Open the garage".
+
+---
+
 ## Test 4: bike ride, 2026-10-10 about 18:17 to 23:09
 
 **Settings:** open within 135 ft, close beyond 200 ft, home fence 492 ft, wake-up zone 3,281 ft,
@@ -115,12 +208,12 @@ it worked after the user turned Wi-Fi off. Coming home at about 23:09 the door o
 
 **Not yet verified (check on the next ride):**
 
-- Diagnostics shows "myQ requests now go over mobile data" and the departure close goes through
-  on the first try at the Wi-Fi edge, with Wi-Fi left on.
-- With Power saving off, the return opens near the *Open within* radius, not at the door.
+- ~~The departure close goes through on the first try at the Wi-Fi edge, with Wi-Fi left on.~~
+  Verified in test 5 (closed 1 s after the decision, over mobile data).
+- ~~With Power saving off, the return opens near the *Open within* radius.~~ Verified in test 5
+  (114 ft and 121 ft for a 135 ft radius).
 - The **Open garage** button appears on the lock screen during the away watch.
-- Voice outdoors: Diagnostics shows "Voice: listening" near home, and the confidence of what it
-  heard.
+- Voice outdoors: one near miss in test 5 ("[unk] garage door", 0.62); more data needed.
 
 **Battery:** Samsung showed the app at 3.9% of battery *use* since the last charge. Android's own
 estimate was about 21 mAh over 5 hours (about 0.4% of a 5,000 mAh battery): wake locks while
@@ -312,8 +405,9 @@ Recorded so they are not researched again.
 - **Wake-word engine**: Picovoice Porcupine needs an account and access key and a custom wake word
   trained in their console. Chose **Vosk** (offline, Apache 2.0, no account) with a grammar of the
   door phrases; it only runs within 500 ft, so its higher CPU use than a wake-word engine is brief.
-- **Listening all the time at home**: rejected; a TV or a conversation could open the door. The
-  listener needs a location reading from the last 2 minutes within 500 ft.
+- **Listening all the time at home**: rejected; a TV or a conversation could open the door, and
+  the microphone costs very roughly 10 to 25 mAh per hour (test 5). The listener needs a location
+  reading from the last 2 minutes within 500 ft, or a screen wake at home in the last minute.
 - **Tesla**: Tesla does not allow installing third-party apps. Options if wanted later: myQ's own
   Tesla integration (believed to need a paid myQ subscription; check the car or the myQ app), or a
   web page for the car's browser backed by a small server of ours (myQ cannot be called from a
@@ -348,9 +442,19 @@ Recorded so they are not researched again.
   4). Not yet ride-tested. If cell signal is weak at the door, a call waits up to 5 s to connect
   (or 3 s for mobile data to come up) before falling back to Wi-Fi; mobile data is then skipped
   for 20 to 60 s.
-- **Voice command** is untested outdoors (wind, a bike, the phone in a pocket). Check
-  Diagnostics for its confidence scores before changing `MIN_WORD_CONFIDENCE`. It only listens
-  while hands-free produces fresh readings near home, so standing still at home it is off.
+- **Voice command** is barely tested outdoors (wind, a bike, the phone in a pocket). Check
+  Diagnostics for its confidence scores before changing `MIN_WORD_CONFIDENCE`. It listens while
+  hands-free produces fresh readings near home, and for 1 minute after a screen wake or app open
+  at home; with the phone lying still and the screen off it is off. Since test 5 "door" is
+  optional, so a sentence containing "open the garage" or "close the garage" acts too.
+- **A reading back inside the close radius right after leaving ends the away watch** (test 5,
+  16:37:37: 156 ft at 15.7 m/s, 20 s after the close at 226 ft). The zone went back to HOME
+  without opening (not armed), and only the home-fence EXIT a minute later restarted the watch.
+  With the screen off that EXIT can be 30-40 minutes late, so a quick return inside that gap
+  would not auto-open. Not fixed yet.
+- **Every new build installed** registers activity detection again, which reports "Started
+  moving" at once and starts a 5-minute GPS departure check (tests 4 and 5). Test noise, but it
+  also makes voice listen for up to 7 minutes after an install.
 - **Lock-screen Open button and voice** open the door for anyone holding the phone.
 - **Force stop** (Settings, App info, Force stop) removes every geofence, and also stops the voice
   listener. Swiping the app away from Recents does neither. Unverified: opening the app may not

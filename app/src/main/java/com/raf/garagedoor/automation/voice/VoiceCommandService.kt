@@ -2,8 +2,10 @@ package com.raf.garagedoor.automation.voice
 
 import android.app.ForegroundServiceStartNotAllowedException
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.media.AudioManager
 import android.media.ToneGenerator
@@ -14,6 +16,7 @@ import com.raf.garagedoor.GarageApplication
 import com.raf.garagedoor.automation.AutomationNotifications
 import com.raf.garagedoor.automation.DoorCommandWorker
 import com.raf.garagedoor.door.DoorCommand
+import com.raf.garagedoor.location.QuickLocationReader
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -29,10 +32,10 @@ import java.time.Instant
 import java.util.Locale
 
 /**
- * "Open garage door" / "Close garage door" by voice, with the phone locked and the app closed. Android only lets an app
- * use the microphone in the background from a foreground service that was started while the app
- * was on screen, so this service is started from the app and then stays running; it only opens the
- * microphone while [VoiceListeningGate] says the user is within 500 ft of the garage.
+ * "Open the garage" / "Close the garage" by voice, with the phone locked and the app closed. Android
+ * only lets an app use the microphone in the background from a foreground service that was started
+ * while the app was on screen, so this service is started from the app and then stays running; it
+ * only opens the microphone while [VoiceListeningGate] says the user is within 500 ft of the garage.
  */
 class VoiceCommandService : Service() {
 
@@ -40,14 +43,23 @@ class VoiceCommandService : Service() {
     private val container get() = (application as GarageApplication).container
     private val notifications: AutomationNotifications get() = container.automationNotifications
     private lateinit var listener: VoskPhraseListener
+    private lateinit var wakeReadings: ScreenWakeReadings
     private var gateWatch: Job? = null
     private var lastSent: Pair<DoorCommand, Instant>? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    private val screenReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            wakeReadings.onScreenWoken()
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         listener = VoskPhraseListener(this, ::onPhrase) { problem -> record(problem) }
+        wakeReadings = ScreenWakeReadings(QuickLocationReader(this), container.geofenceSettings, container.presenceRepository, container.clock)
+        ContextCompat.registerReceiver(this, screenReceiver, IntentFilter(Intent.ACTION_SCREEN_ON), ContextCompat.RECEIVER_NOT_EXPORTED)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -57,11 +69,13 @@ class VoiceCommandService : Service() {
             return START_NOT_STICKY
         }
         notifications.dismissVoicePaused()
+        wakeReadings.onScreenWoken() // started from the app, so the user just opened it
         if (gateWatch == null) gateWatch = scope.launch { followListeningGate() }
         return START_STICKY
     }
 
     override fun onDestroy() {
+        unregisterReceiver(screenReceiver)
         listener.release()
         scope.cancel()
         super.onDestroy()
@@ -79,10 +93,11 @@ class VoiceCommandService : Service() {
     }
 
     private suspend fun followListeningGate() {
-        combine(container.automationSettings.settings, container.presenceRepository.state, everyFewSeconds()) { settings, presence, _ ->
-            settings.voiceCommandsEnabled to VoiceListeningGate.shouldListen(presence, container.clock.instant())
-        }.collect { (isEnabled, isNearGarage) ->
-            if (!isEnabled) stopSelf() else applyListening(isNearGarage)
+        val settings = container.automationSettings.settings
+        combine(settings, container.presenceRepository.state, wakeReadings.readings, everyFewSeconds()) { current, presence, wake, _ ->
+            current.voiceCommandsEnabled to VoiceListeningGate.reasonToListen(presence, wake, container.clock.instant())
+        }.collect { (isEnabled, reason) ->
+            if (!isEnabled) stopSelf() else applyListening(reason)
         }
     }
 
@@ -94,12 +109,13 @@ class VoiceCommandService : Service() {
         }
     }
 
-    private suspend fun applyListening(shouldListen: Boolean) {
+    private suspend fun applyListening(reason: VoiceListeningGate.Reason?) {
+        val shouldListen = reason != null
         if (shouldListen == listener.isListening) return
         if (shouldListen) listener.start() else listener.stop()
         if (listener.isListening != shouldListen) return
         notifications.updateVoiceNotification(shouldListen)
-        record(if (shouldListen) "Voice: listening (within 500 ft of the garage)" else "Voice: stopped listening")
+        record(if (reason != null) "Voice: listening (within 500 ft: ${reason.label})" else "Voice: stopped listening")
     }
 
     private fun onPhrase(heard: HeardPhrase) {
