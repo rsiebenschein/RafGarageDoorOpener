@@ -17,11 +17,12 @@ class GeofenceDraftTest {
     }
 
     @Test
-    fun withOpenRadius_pushesCloseRadiusOutToKeepMinimumGap() {
-        val draft = GeofenceDraft().withOpenRadius(150)
+    fun radii_areIndependentSoTheOpenRadiusCanBeTheLargerOne() {
+        val draft = GeofenceDraft().withOpenRadius(300).withCloseRadius(100)
 
-        assertEquals(150, draft.openRadiusFeet)
-        assertEquals(170, draft.closeRadiusFeet)
+        assertEquals(300, draft.openRadiusFeet)
+        assertEquals(100, draft.closeRadiusFeet)
+        assertEquals(91.44, draft.outerRadiusMeters, 1e-9)
     }
 
     @Test
@@ -31,10 +32,9 @@ class GeofenceDraftTest {
     }
 
     @Test
-    fun withCloseRadius_cannotDropInsideOpenRadiusPlusGap() {
-        val draft = GeofenceDraft().withOpenRadius(80).withCloseRadius(50)
-
-        assertEquals(100, draft.closeRadiusFeet)
+    fun withCloseRadius_clampsToAllowedRange() {
+        assertEquals(GeofenceRadiusLimits.CLOSE_MIN_FEET, GeofenceDraft().withCloseRadius(10).closeRadiusFeet)
+        assertEquals(GeofenceRadiusLimits.CLOSE_MAX_FEET, GeofenceDraft().withCloseRadius(9_999).closeRadiusFeet)
     }
 
     @Test

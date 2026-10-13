@@ -39,6 +39,11 @@ class MobileDataFirstRoute(
         }
     }
 
+    /** Called while a door command is likely soon (departure check, last stretch home). */
+    suspend fun prepareForDoorCommand() {
+        if (isMobileDataAllowed()) mobileData.keepWarmFor(WARM_FOR_COMMAND_MILLIS)
+    }
+
     private suspend fun <T> sendOverMobileFirst(network: Network, send: (OkHttpClient) -> T): T = try {
         send(clientFor(network)).also { noteRoute("myQ requests now go over mobile data") }
     } catch (mobileFailed: IOException) {
@@ -82,5 +87,8 @@ class MobileDataFirstRoute(
         /** Short, so a weak signal in the garage hands over to Wi-Fi quickly. */
         val MOBILE_CONNECT_TIMEOUT: Duration = Duration.ofSeconds(5)
         val MOBILE_CALL_TIMEOUT: Duration = Duration.ofSeconds(10)
+
+        /** Renewed by every precise location fix, so it lapses a minute after GPS tracking stops. */
+        const val WARM_FOR_COMMAND_MILLIS = 60_000L
     }
 }

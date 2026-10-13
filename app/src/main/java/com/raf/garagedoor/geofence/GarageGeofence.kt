@@ -12,8 +12,8 @@ data class GeoPoint(val latitude: Double, val longitude: Double)
 
 /**
  * The garage location with two radii: the door opens when arriving inside [openRadiusFeet] and
- * closes after leaving beyond [closeRadiusFeet]. The gap between them stops GPS jitter near the
- * boundary from opening and closing the door repeatedly.
+ * closes after leaving beyond [closeRadiusFeet]. Either may be the larger one; the presence engine,
+ * not a gap between them, stops GPS jitter from opening and closing the door repeatedly.
  */
 data class GarageGeofence(
     val center: GeoPoint,
@@ -22,24 +22,27 @@ data class GarageGeofence(
 ) {
     val openRadiusMeters: Double get() = feetToMeters(openRadiusFeet)
     val closeRadiusMeters: Double get() = feetToMeters(closeRadiusFeet)
+
+    /** The larger of the two radii. */
+    val outerRadiusMeters: Double get() = maxOf(openRadiusMeters, closeRadiusMeters)
 }
 
 object GeofenceRadiusLimits {
     const val OPEN_MIN_FEET = 25
     const val OPEN_MAX_FEET = 500
+
+    /** GPS outdoors is good to about ±15 ft; below this a close could come from jitter at the door. */
+    const val CLOSE_MIN_FEET = 60
     const val CLOSE_MAX_FEET = 1000
-    const val MIN_CLOSE_GAP_FEET = 20
     const val DEFAULT_OPEN_FEET = 60
     const val DEFAULT_CLOSE_FEET = 100
 
     fun coerceOpen(feet: Int): Int = feet.coerceIn(OPEN_MIN_FEET, OPEN_MAX_FEET)
 
-    fun closeMinimumFor(openFeet: Int): Int = openFeet + MIN_CLOSE_GAP_FEET
-
-    fun coerceClose(closeFeet: Int, openFeet: Int): Int = closeFeet.coerceIn(closeMinimumFor(openFeet), CLOSE_MAX_FEET)
+    fun coerceClose(feet: Int): Int = feet.coerceIn(CLOSE_MIN_FEET, CLOSE_MAX_FEET)
 }
 
-/** Editable, possibly incomplete geofence; radius changes keep the close radius beyond the open radius. */
+/** Editable, possibly incomplete geofence; the two radii are set independently. */
 data class GeofenceDraft(
     val center: GeoPoint? = null,
     val openRadiusFeet: Int = GeofenceRadiusLimits.DEFAULT_OPEN_FEET,
@@ -50,13 +53,11 @@ data class GeofenceDraft(
 
     fun withCenter(point: GeoPoint): GeofenceDraft = copy(center = point)
 
-    fun withOpenRadius(feet: Int): GeofenceDraft {
-        val open = GeofenceRadiusLimits.coerceOpen(feet)
-        return copy(openRadiusFeet = open, closeRadiusFeet = GeofenceRadiusLimits.coerceClose(closeRadiusFeet, open))
-    }
+    val outerRadiusMeters: Double get() = maxOf(openRadiusMeters, closeRadiusMeters)
 
-    fun withCloseRadius(feet: Int): GeofenceDraft =
-        copy(closeRadiusFeet = GeofenceRadiusLimits.coerceClose(feet, openRadiusFeet))
+    fun withOpenRadius(feet: Int): GeofenceDraft = copy(openRadiusFeet = GeofenceRadiusLimits.coerceOpen(feet))
+
+    fun withCloseRadius(feet: Int): GeofenceDraft = copy(closeRadiusFeet = GeofenceRadiusLimits.coerceClose(feet))
 
     fun toGeofence(): GarageGeofence? = center?.let { GarageGeofence(it, openRadiusFeet, closeRadiusFeet) }
 

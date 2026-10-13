@@ -16,10 +16,17 @@ data class PresenceEvaluation(val state: PresenceState, val decision: DoorDecisi
 /**
  * Pure home/away state machine fed by precise location fixes.
  *
+ * - The two radii are independent: the open radius may be the larger one (open early, close soon
+ *   after leaving the driveway).
  * - Opening requires a real trip: arrival is only armed by a later, accurate fix well beyond the
- *   close radius. The first fix after enabling never arms, so a bad indoor fix cannot open the door.
+ *   larger radius. The first fix after enabling never arms, so a bad indoor fix cannot open the
+ *   door, and a road that bends back toward the house cannot open it while leaving.
  * - Closing requires two consecutive fixes confidently outside the close radius, or one while
  *   moving at cycling/driving speed, where waiting for a second fix costs too much distance.
+ * - Close to the house (within [DRIFT_PRONE_DISTANCE_METERS], or inside the open radius) a fix
+ *   only counts toward closing while moving away at cycling/driving speed, and two are needed:
+ *   GPS indoors or in the yard drifts that far, and someone riding in after the door opened is
+ *   moving fast too, but toward the house.
  * - With an open countdown, the trigger moves outward by speed x countdown so the door still
  *   starts moving at the configured radius.
  * - Opening also requires the approach to have been watched: if the previous reading is older than
@@ -32,6 +39,9 @@ object PresenceEngine {
     const val ARRIVAL_ARMING_MARGIN_METERS = 50.0
     const val MAX_ARMING_ACCURACY_METERS = 25.0
     const val FAST_DEPARTURE_SPEED_METERS_PER_SECOND = 3f
+
+    /** 200 ft: the close radius used through field tests 3 to 5 without a single false close. */
+    const val DRIFT_PRONE_DISTANCE_METERS = 61.0
     private const val MAX_OPEN_LEAD_METERS = 300.0
     val MAX_READING_GAP_TO_OPEN: Duration = Duration.ofMinutes(5)
 
@@ -40,7 +50,9 @@ object PresenceEngine {
         val observed = state.copy(lastDistanceMeters = distance, lastFixAt = now)
         if (fix.accuracyMeters > MAX_USABLE_ACCURACY_METERS) return PresenceEvaluation(observed, null, distance)
         val isMovingFast = (fix.speedMetersPerSecond ?: 0f) >= FAST_DEPARTURE_SPEED_METERS_PER_SECOND
-        val sample = Sample(distance, fix.accuracyMeters.toDouble(), openLeadMeters(fix, openLeadSeconds), isMovingFast, isApproachWatched(state, now))
+        val isMovingAway = state.lastDistanceMeters?.let { distance > it } == true
+        val motion = Motion(isMovingFast, isMovingAway)
+        val sample = Sample(distance, fix.accuracyMeters.toDouble(), openLeadMeters(fix, openLeadSeconds), motion, isApproachWatched(state, now))
         return when (state.zone) {
             PresenceZone.UNKNOWN -> PresenceEvaluation(classifyInitialZone(observed, sample, geofence), null, distance)
             PresenceZone.AWAY -> evaluateWhileAway(observed, sample, geofence)
@@ -49,16 +61,19 @@ object PresenceEngine {
     }
 
     fun arrivalArmingDistanceMeters(geofence: GarageGeofence): Double =
-        geofence.closeRadiusMeters + ARRIVAL_ARMING_MARGIN_METERS
+        geofence.outerRadiusMeters + ARRIVAL_ARMING_MARGIN_METERS
+
+    private data class Motion(val isFast: Boolean, val isAway: Boolean)
 
     private data class Sample(
         val distance: Double,
         val accuracy: Double,
         val openLead: Double,
-        val isMovingFast: Boolean,
+        val motion: Motion,
         val isApproachWatched: Boolean,
     ) {
         val confidentMinimumDistance: Double get() = distance - accuracy
+        val isMovingFast: Boolean get() = motion.isFast
     }
 
     private fun classifyInitialZone(state: PresenceState, sample: Sample, geofence: GarageGeofence): PresenceState =
@@ -79,17 +94,28 @@ object PresenceEngine {
     }
 
     private fun evaluateWhileHome(state: PresenceState, sample: Sample, geofence: GarageGeofence): PresenceEvaluation {
-        if (sample.confidentMinimumDistance <= geofence.closeRadiusMeters) {
+        if (!countsTowardClosing(sample, geofence)) {
             return PresenceEvaluation(state.copy(consecutiveFixesOutside = 0), null, sample.distance)
         }
         val outsideFixes = state.consecutiveFixesOutside + 1
-        val requiredFixes = if (sample.isMovingFast) 1 else REQUIRED_CONSECUTIVE_OUTSIDE_FIXES
-        if (outsideFixes < requiredFixes) {
+        if (outsideFixes < requiredFixesToClose(sample, geofence)) {
             return PresenceEvaluation(state.copy(consecutiveFixesOutside = outsideFixes), null, sample.distance)
         }
         val departed = state.copy(zone = PresenceZone.AWAY, consecutiveFixesOutside = 0, isArrivalArmed = isFarEnoughToArm(sample, geofence))
         return PresenceEvaluation(departed, DoorDecision.CLOSE, sample.distance)
     }
+
+    /** Outside the close radius; near the house, only while riding or driving away (see the class comment). */
+    private fun countsTowardClosing(sample: Sample, geofence: GarageGeofence): Boolean {
+        if (sample.confidentMinimumDistance <= geofence.closeRadiusMeters) return false
+        return !isNearHouse(sample, geofence) || (sample.motion.isFast && sample.motion.isAway)
+    }
+
+    private fun requiredFixesToClose(sample: Sample, geofence: GarageGeofence): Int =
+        if (sample.isMovingFast && !isNearHouse(sample, geofence)) 1 else REQUIRED_CONSECUTIVE_OUTSIDE_FIXES
+
+    private fun isNearHouse(sample: Sample, geofence: GarageGeofence): Boolean =
+        sample.confidentMinimumDistance <= maxOf(DRIFT_PRONE_DISTANCE_METERS, geofence.openRadiusMeters)
 
     private fun isApproachWatched(previous: PresenceState, now: Instant): Boolean =
         previous.lastFixAt?.let { Duration.between(it, now) <= MAX_READING_GAP_TO_OPEN } ?: false

@@ -167,7 +167,7 @@ private fun GeofenceControls(state: GeofenceUiState, actions: GeofenceEditorActi
             RadiusSlider(
                 title = stringResource(R.string.geofence_close_radius, draft.closeRadiusFeet),
                 feet = draft.closeRadiusFeet,
-                range = GeofenceRadiusLimits.closeMinimumFor(draft.openRadiusFeet)..GeofenceRadiusLimits.CLOSE_MAX_FEET,
+                range = GeofenceRadiusLimits.CLOSE_MIN_FEET..GeofenceRadiusLimits.CLOSE_MAX_FEET,
                 color = CloseZoneColor,
                 onChange = actions.onCloseRadiusChange,
                 onChangeFinished = actions.onRadiusChangeFinished,

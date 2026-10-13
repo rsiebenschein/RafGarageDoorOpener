@@ -38,7 +38,7 @@ class WidgetDoorToggle(
         store.update { it.moving(command, now) }
         updater.redraw()
         DoorCommandWorker.enqueue(context, command, REASON, showsResult = false)
-        departureOnDoorOpen.onCommandAccepted(command)
+        departureOnDoorOpen.onCommandAccepted(command, source = "widget")
         leftOpenChecks.onCommandAccepted(command)
     }
 

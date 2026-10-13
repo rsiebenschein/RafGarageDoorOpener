@@ -51,6 +51,7 @@ class PresenceTracker(
     private val diagnostics: DiagnosticsLog,
     private val clock: Clock,
     private val isPowerSavingLimitingLocation: () -> Boolean = { false },
+    private val prepareForDoorCommand: suspend () -> Unit = {},
 ) {
     private val fixMutex = Mutex()
 
@@ -83,6 +84,7 @@ class PresenceTracker(
             var nextCadence = cadence
             locationUpdates.fixes(cadence).first { fix ->
                 stats.record(fix)
+                if (cadence == LocationCadence.PRECISE) prepareForDoorCommand()
                 val evaluation = processFix(fix)
                 outcome = outcomeAfter(purpose, evaluation)
                 nextCadence = cadenceFor(purpose, evaluation?.distanceMeters, fix.accuracyMeters.toDouble())

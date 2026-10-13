@@ -53,6 +53,99 @@ $ADB shell dumpsys activity service com.google.android.gms/com.google.android.lo
 
 ---
 
+## Test 6: two days of normal use, 2026-10-11 21:13 to 2026-10-13 16:10
+
+**Settings:** as in test 5 (open within 135 ft, close beyond 200 ft), with the test 5 build
+(routine checks on Wi-Fi, door-less voice phrases, voice for a minute after a screen wake).
+
+**What the user saw:** everything worked. The user asked for the radii the other way round: open
+further out (the door should already be up on arrival) and close sooner after leaving.
+
+**Timeline:**
+
+| Time | Event |
+|---|---|
+| 10-11 21:20 | Voice at home after a screen wake: "open the garage door" opened, "close the garage door" closed, each within 1-4 s |
+| 10-11 22:34 to 22:42 | Repeated screen wakes while already listening: "stopped listening" / "listening" every few seconds (the microphone restarted on each wake) |
+| 10-12 07:25:34 | Voice open. **No departure check started**; activity detection started one 2 min later |
+| 10-12 07:27:39 | CLOSE at 243 ft (8.1 m/s). Mobile data "did not come up within 3 s", then 2 Wi-Fi attempts failed on DNS (weak home Wi-Fi). **Closed 07:28:08, 29 s late** |
+| 10-12 16:40:23 | OPEN at 107 ft (7.3 m/s) for a 135 ft radius |
+| 10-12 18:23:02 | Voice "open the garage" opened. **No departure check**; the next one (activity) started 18:28:25 with the user already 537 ft away, and closed then |
+| 10-12 20:47:44 | OPEN at 94 ft (6.8 m/s) |
+| 10-13 08:40:10 | Voice open (after a near miss "garage door" at 08:39:51) |
+| 10-13 08:42:39 | CLOSE at 228 ft (9.2 m/s). The status read just before went over mobile data; the close command 3 s later waited for mobile data again, fell back to Wi-Fi, DNS failed. **Closed 08:42:52, 13 s late** |
+| 10-13 16:16 | While checking the fix, the app process was ended (test run) with the user away: **the away watch did not come back**, only the voice service did |
+
+**Battery since unplugging at 08:39 on 10-13 (7.4 h, mostly away):** the app used **4.1 mAh**
+(test 5: 52 mAh over 20 h). One widget session (156 in test 5), mobile radio active 9 s (14 min 40
+s in test 5), 48 left-open checks holding the phone awake 13 s in total. The phone used 762 mAh.
+
+**Root causes:**
+
+1. **Mobile data was released between the read and the command.** Each call requested mobile
+   data and released it right after, so the connection was torn down and the close command had to
+   bring it up again; on Wi-Fi that sometimes takes more than 3 s. The failed bring-up also
+   skipped mobile data for 60 s, so every retry went to the failing Wi-Fi.
+2. **Voice opens did not start the departure check** (app and widget opens do).
+3. **A screen wake while listening restarted the microphone**: the new wake reading replaced the
+   old one with "nothing" first.
+4. **Nothing brought the away watch back after the app process ended**, except a reboot or an app
+   update. "Started moving while AWAY" (about 10 a day) was only logged.
+5. **The radii were forced apart** (close at least open + 20 ft) because arrival was armed beyond
+   the close radius, which only works while the close radius is the larger one.
+
+**Fixes (all on the phone 10-13 16:17):**
+
+- `MobileDataNetwork` holds mobile data instead of releasing it per call: 30 s after each call,
+  for a minute after every precise (GPS) fix in a tracking session (departure checks and the last
+  stretch home), and while it is still coming up, so a retry uses it the moment it is ready. No
+  more 60 s skip after a slow bring-up; 10 s (not 20) after a failed call. On-device test
+  (`MobileDataNetworkOnDeviceTest`, on Wi-Fi): mobile data up once, second call reused it after
+  1 ms, one network request.
+- Voice opens start the departure check, like the app and widget ("Door opened from voice ->
+  DEPARTURE"). Not field-tested yet.
+- A new screen wake keeps the current reading until the new one is in: no microphone restart.
+- `AwayWatchResume`: the away watch comes back when the app is opened, when the user starts moving
+  while away, and after a reboot or update; it does nothing if a watch is running. Verified: after
+  the app process was ended, opening the app logged "Resumed away watch (app opened)".
+- **Independent radii** (`PresenceEngine`, `GeofenceRadiusLimits`): the open radius may be the
+  larger one (close 60 to 1,000 ft, open 25 to 500 ft). To keep both old protections:
+  - Arrival arms only beyond the **larger** radius + 165 ft, so a road bending back toward the
+    house while leaving cannot open the door.
+  - Within 200 ft of the garage, or inside the open radius, a reading only counts toward closing
+    while **moving away at 6.7 mph or more**, and two are needed. GPS drift in the yard or house
+    (slow) and riding in after an arrival open (fast, but toward the house) never close the door.
+  - Unit tests cover riding away, riding in, walking in the yard, the road bending back, and a real
+    trip with open 300 ft / close 100 ft.
+
+**Voice failures (reported 10-13, "issues this morning and other times"):**
+
+- Diagnostics had only part of a phrase several times: "garage" (10-11 21:21:36, 21:21:40,
+  22:38:51, 22:42:02) and "garage door" (10-13 08:39:51), and the retry right after worked.
+  **Cause: Vosk ends an utterance at a short pause**, so "Open the ... garage" arrives as two
+  results, "open the" and "garage", and neither is a command. Confirmed on the phone with
+  synthetic speech containing a 1 s pause, streamed in 0.1 s chunks like the microphone:
+  `[[unk] open the, garage]` and `[close the, garage door]`. The microphone restart on every
+  screen wake (fixed above) cut phrases too: 22:38:51 "garage" was logged in the same second as a
+  restart.
+- **Fix:** `SplitPhraseJoiner` matches each result on its own first, then joined to the previous
+  result if that came within 4 s. Both paused samples now act on the phone
+  (`VoskModelOnDeviceTest.phraseSplitByAPauseActsOnceJoined`). Diagnostics now also logs results
+  with "open" or "close" (not only "garage"), so a lost first or second half shows up.
+- **Airplane mode overnight (Wi-Fi on)** did not stop the listener (it listened at 03:54 and
+  08:09; no app restart is needed), but each door command first waited for mobile data that
+  could not come up (08:40:10 voice open: "no mobile network came up within 3 s", opened 4 s
+  later). **Fix:** airplane mode now counts as "mobile data unusable", so commands go straight to
+  Wi-Fi. Not tried on the phone (a settings read; toggling airplane mode from the Mac would cut
+  the phone off).
+
+**Check next:** try open around 250-300 ft and close around 100 ft. Departure closes should come
+within a second or two of the decision, over mobile data, with Wi-Fi on. Diagnostics should show
+"Door opened from voice -> DEPARTURE" after a voice open at home. Voice with a natural pause
+("Open the... garage") should act; any remaining miss shows both halves in Diagnostics.
+
+---
+
 ## Test 5: a full day on battery, 2026-10-11 00:32 to 20:00
 
 **Settings:** as in test 4 (open within 135 ft, close beyond 200 ft, left-open *Remind me* after
@@ -438,10 +531,12 @@ Recorded so they are not researched again.
   still away before closing.
 - **Power saving mode** (test 4) disables GPS with the screen off and defers background checks.
   The app now warns about it, but cannot override it.
-- **Weak Wi-Fi at the edge of range** (tests 3 and 4): now sent over mobile data first (see test
-  4). Not yet ride-tested. If cell signal is weak at the door, a call waits up to 5 s to connect
-  (or 3 s for mobile data to come up) before falling back to Wi-Fi; mobile data is then skipped
-  for 20 to 60 s.
+- **Weak Wi-Fi at the edge of range** (tests 3, 4 and 6): door commands go over mobile data
+  first, now held from the departure check onward (test 6). If cell signal is weak at the door, a
+  call waits up to 5 s for mobile data and 5 s to connect before falling back to Wi-Fi.
+- **A large open radius opens the door for a pass-by.** With *Open within* at 300 ft, riding or
+  driving past the house within 300 ft (without stopping) after a real trip opens the door; the
+  left-open reminder or monitor then has to catch it. Check the route before choosing the radius.
 - **Voice command** is barely tested outdoors (wind, a bike, the phone in a pocket). Check
   Diagnostics for its confidence scores before changing `MIN_WORD_CONFIDENCE`. It listens while
   hands-free produces fresh readings near home, and for 1 minute after a screen wake or app open

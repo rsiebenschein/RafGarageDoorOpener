@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.lifecycle.lifecycleScope
+import com.raf.garagedoor.automation.AwayWatchResume
 import com.raf.garagedoor.automation.voice.VoiceCommandService
 import com.raf.garagedoor.ui.GarageAppRoot
 import com.raf.garagedoor.ui.session.SessionViewModel
@@ -25,11 +26,15 @@ class MainActivity : ComponentActivity() {
         setContent { RafsGarageTheme { GarageAppRoot(sessionViewModel) } }
     }
 
-    /** The voice service may only take the microphone while the app is on screen, so (re)start it here. */
+    /**
+     * The voice service may only take the microphone while the app is on screen, so (re)start it
+     * here; the away watch is also brought back if it is no longer running.
+     */
     override fun onStart() {
         super.onStart()
         val container = (application as GarageApplication).container
         lifecycleScope.launch {
+            AwayWatchResume.resumeIfAway(this@MainActivity, container, reason = "app opened")
             val isWanted = container.automationSettings.current().voiceCommandsEnabled
             if (isWanted && container.automationPermissions.status().microphone) VoiceCommandService.start(this@MainActivity)
         }

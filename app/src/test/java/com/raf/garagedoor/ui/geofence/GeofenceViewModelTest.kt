@@ -75,10 +75,11 @@ class GeofenceViewModelTest {
         val viewModel = GeofenceViewModel(repository, locationProvider)
         viewModel.placeGarage(garage)
         viewModel.setOpenRadius(150)
+        viewModel.setCloseRadius(80)
 
         viewModel.save()
 
-        assertEquals(GarageGeofence(garage, 150, 170), repository.geofence.value)
+        assertEquals(GarageGeofence(garage, 150, 80), repository.geofence.value)
         assertEquals(GeofenceMessage.SAVED, viewModel.state.value.message)
         assertFalse(viewModel.state.value.hasUnsavedChanges)
     }

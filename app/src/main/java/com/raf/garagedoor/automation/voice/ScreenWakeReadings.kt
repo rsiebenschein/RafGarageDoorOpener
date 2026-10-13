@@ -8,7 +8,9 @@ import com.raf.garagedoor.location.QuickLocationReader
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.transformLatest
 import java.time.Clock
 import java.time.Instant
@@ -30,11 +32,14 @@ class ScreenWakeReadings(
         wokeAt.value = clock.instant()
     }
 
+    /**
+     * Keeps the previous reading until a new one is in: a second wake while listening must not
+     * stop and restart the microphone (field test 6 logged that every few seconds).
+     */
     @OptIn(ExperimentalCoroutinesApi::class)
-    val readings: Flow<WakeReading?> = wokeAt.transformLatest { at ->
-        emit(null)
-        if (at != null) readingAt(at)?.let { emit(it) }
-    }
+    val readings: Flow<WakeReading?> = wokeAt.filterNotNull()
+        .transformLatest<Instant, WakeReading?> { at -> readingAt(at)?.let { emit(it) } }
+        .onStart { emit(null) }
 
     private suspend fun readingAt(wokeAt: Instant): WakeReading? {
         if (presence.current().zone != PresenceZone.HOME) return null

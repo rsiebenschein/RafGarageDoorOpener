@@ -46,6 +46,7 @@ class VoiceCommandService : Service() {
     private lateinit var wakeReadings: ScreenWakeReadings
     private var gateWatch: Job? = null
     private var lastSent: Pair<DoorCommand, Instant>? = null
+    private val joiner = SplitPhraseJoiner()
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -119,11 +120,18 @@ class VoiceCommandService : Service() {
     }
 
     private fun onPhrase(heard: HeardPhrase) {
-        val command = VoicePhrases.commandIn(heard)
+        val match = commandMatching(heard)
         when {
-            command != null -> send(command, heard)
+            match != null -> send(match.first, match.second).also { joiner.forget() }
             VoicePhrases.isNearMiss(heard) -> record("Voice: heard \"${heard.text}\" (${confidenceLabel(heard)}), not sure enough to act")
         }
+    }
+
+    /** This result on its own first, then joined to the one just before it ([SplitPhraseJoiner]). */
+    private fun commandMatching(heard: HeardPhrase): Pair<DoorCommand, HeardPhrase>? {
+        val joined = joiner.withRecent(heard, container.clock.instant())
+        VoicePhrases.commandIn(heard)?.let { return it to heard }
+        return VoicePhrases.commandIn(joined)?.let { it to joined }
     }
 
     /** The same command again within [REPEAT_COOLDOWN] is an echo or a repeat; the other command always goes through. */
@@ -134,6 +142,7 @@ class VoiceCommandService : Service() {
         lastSent = command to now
         acknowledgeWithTone()
         DoorCommandWorker.enqueue(this, command, REASON)
+        scope.launch { container.departureOnDoorOpen.onCommandAccepted(command, source = "voice") }
         record("Voice: heard \"${heard.text}\" (${confidenceLabel(heard)}), ${if (command == DoorCommand.OPEN) "opening" else "closing"}")
     }
 

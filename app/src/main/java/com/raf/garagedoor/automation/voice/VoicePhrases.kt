@@ -39,6 +39,7 @@ object VoicePhrases {
     val GRAMMAR: String = (PHRASES.keys + UNKNOWN).joinToString(prefix = "[", postfix = "]") { "\"$it\"" }
 
     private const val UNKNOWN = "[unk]"
+    private val COMMAND_WORDS = setOf("open", "close", "garage")
     private val json = Json { ignoreUnknownKeys = true }
 
     /** Parses a Vosk result such as {"result":[{"conf":0.98,"word":"open"},...],"text":"open garage door"}. */
@@ -60,8 +61,12 @@ object VoicePhrases {
     fun commandIn(heard: HeardPhrase): DoorCommand? =
         phraseIn(heard)?.takeIf { it.confidence >= MIN_WORD_CONFIDENCE }?.command
 
-    /** Worth a Diagnostics line: anything mentioning the garage, so the threshold can be tuned. */
-    fun isNearMiss(heard: HeardPhrase): Boolean = heard.words.any { it.word == "garage" }
+    /** Worth a Diagnostics line: anything with a command word, so failures can be told apart and tuned. */
+    fun isNearMiss(heard: HeardPhrase): Boolean = heard.words.any { it.word in COMMAND_WORDS }
+
+    /** Two results heard one after the other, as one. */
+    fun joined(first: HeardPhrase, second: HeardPhrase): HeardPhrase =
+        HeardPhrase("${first.text} ${second.text}", first.words + second.words)
 
     private fun confidenceOfPhrase(phrase: List<String>, words: List<HeardWord>): Double? =
         words.windowed(phrase.size).firstOrNull { window -> window.map { it.word } == phrase }?.minOf { it.confidence }

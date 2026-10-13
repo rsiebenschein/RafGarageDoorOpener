@@ -52,7 +52,7 @@
     <string name="geofence_open_radius">Open within %1$d ft</string>
     <string name="geofence_close_radius">Close beyond %1$d ft</string>
     <string name="geofence_radius_detail">%1$d ft across · %2$d m</string>
-    <string name="geofence_latency_hint">The door takes about 15 seconds to open, so a larger open radius means it\'s already up when you pull in.</string>
+    <string name="geofence_latency_hint">The door takes about 15 seconds to open, so a larger open radius means it\'s already up when you pull in. The close radius can be smaller than the open radius; within 200 ft of the garage the door only closes while you ride or drive away, so walking around the yard never closes it.</string>
     <string name="geofence_use_my_location">My location</string>
     <string name="geofence_save">Save</string>
     <string name="geofence_saved">Garage location saved</string>

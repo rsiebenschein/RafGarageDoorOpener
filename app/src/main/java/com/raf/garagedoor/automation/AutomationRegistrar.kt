@@ -107,13 +107,13 @@ class AutomationRegistrar(private val context: Context) {
         private const val NOTIFICATION_RESPONSIVENESS_MILLIS = 10_000
         private const val GEOFENCE_REQUEST_CODE = 10
         private const val ACTIVITY_REQUEST_CODE = 11
-        private const val WAKE_RADIUS_TO_CLOSE_RADIUS_RATIO = 3.0
+        private const val WAKE_RADIUS_TO_OUTER_RADIUS_RATIO = 3.0
 
         fun wakeRadiusMeters(geofence: GarageGeofence): Double =
-            max(MIN_WAKE_RADIUS_METERS, geofence.closeRadiusMeters * WAKE_RADIUS_TO_CLOSE_RADIUS_RATIO)
+            max(MIN_WAKE_RADIUS_METERS, geofence.outerRadiusMeters * WAKE_RADIUS_TO_OUTER_RADIUS_RATIO)
 
         /** Only wakes the app; the open and close decisions still use the user's exact radii. */
         fun homeFenceRadiusMeters(geofence: GarageGeofence): Double =
-            max(MIN_HOME_FENCE_RADIUS_METERS, geofence.closeRadiusMeters)
+            max(MIN_HOME_FENCE_RADIUS_METERS, geofence.outerRadiusMeters)
     }
 }

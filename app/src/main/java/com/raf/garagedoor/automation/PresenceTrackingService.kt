@@ -39,6 +39,7 @@ class PresenceTrackingService : Service() {
     }
 
     override fun onDestroy() {
+        isSessionRunning = false
         scope.cancel()
         super.onDestroy()
     }
@@ -63,6 +64,7 @@ class PresenceTrackingService : Service() {
 
     private fun startSession(purpose: TrackingPurpose) {
         activePurpose = purpose
+        isSessionRunning = true
         session = scope.launch {
             val next = purpose.followUpAfter(container.presenceTracker.runSession(purpose))
             if (next != null && enterForeground(next)) startSession(next) else stopSelf()
@@ -71,6 +73,11 @@ class PresenceTrackingService : Service() {
 
     companion object {
         const val TRACKING_NOTIFICATION_ID = 1001
+
+        /** Lives in the app process, so it is false again whenever the process has been restarted. */
+        @Volatile
+        var isSessionRunning = false
+            private set
         private const val EXTRA_PURPOSE = "purpose"
 
         /** Returns `false` when Android refuses a background start (e.g. no qualifying wake-up event). */

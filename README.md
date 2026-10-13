@@ -35,11 +35,11 @@ the return. Geofences and activity detection remain as wake-up triggers and back
 
 | Trigger (low power, app closed) | What the app then does |
 |---|---|
-| You **open the door from the app** while home | Departure check |
+| You **open the door from the app, the widget or by voice** while home | Departure check |
 | Android notices you **start walking, cycling or driving** while home | Departure check |
-| You **leave the home fence** (your close radius, but at least ~490 ft) or the wake-up zone (about 1 km / 0.6 mi) | Departure check (catches departures missed above) |
+| You **leave the home fence** (the larger radius, but at least ~490 ft) or the wake-up zone (about 1 km / 0.6 mi) | Departure check (catches departures missed above) |
 | You **enter** either zone while no session is running | Away watch |
-| Phone **restarts** or the app is **updated** while you are away | Away watch resumes |
+| Phone **restarts**, the app is **updated** or **opened**, or you **start moving**, while you are away and no watch is running (e.g. Android ended the app) | Away watch resumes |
 
 While a session runs, Android requires a visible notification ("Away: watching for your return"
 or "Checking whether you're leaving"). Only one session runs at a time: a trigger that arrives
@@ -50,15 +50,24 @@ command that is already under way.
 
 The app keeps track of whether you are **Home** or **Away**:
 
+- The two radii are **independent**: *Open within* can be larger than *Close beyond*, so the door
+  can start opening well before you arrive and close soon after you leave the driveway (for
+  example open 250-300 ft, close 100 ft).
 - **Arriving opens the door** when you cross the *Open within* radius, but only if you were
   genuinely away first: an accurate reading (±80 ft or better) at least ~165 ft beyond the
-  *Close beyond* radius. GPS drift while you are inside the house can therefore never open
-  the door, and neither can the first reading after hands-free is switched on.
+  **larger** of the two radii. GPS drift while you are inside the house can therefore never open
+  the door, nor a road that bends back toward the house as you leave, nor the first reading after
+  hands-free is switched on.
 - The approach must also have been **watched**: if the previous reading is more than 5 minutes
   old (for example, the first check after an hour-long gap finds you already home), you are
   marked Home without opening, since you may have been inside for a while.
 - **Leaving closes the door** once you are confidently past the *Close beyond* radius: two
   readings in a row, or one when you are moving at cycling or driving speed.
+- **Close to the house** (within 200 ft of the garage, or inside the *Open within* radius) a
+  reading only counts toward closing while you are **moving away at 6.7 mph or more**, and two in a
+  row are needed. Walking around the yard (GPS drifts that far) never closes the door, and neither
+  does riding in right after it opened. On foot it closes once you are past 200 ft or the open
+  radius, whichever is larger.
 - An action is skipped if the door is already in that state, or (optionally) if your phone is not
   connected to your car. Closing is also skipped within 90 seconds of another automatic action, so
   GPS jitter in the driveway cannot close the door that just opened for you.
@@ -70,8 +79,10 @@ The app keeps track of whether you are **Home** or **Away**:
   as the backup, so weak home Wi-Fi that is connected but has no internet cannot block a command.
   Routine status checks (the left-open check every few minutes, the widget refresh, the app
   screen) go the other way round, Wi-Fi first, so mobile data is not woken every few minutes at
-  home (field test 5). Never used while roaming; a request is only a few KB. Diagnostics records
-  which network door commands use and why.
+  home (field test 5). Mobile data is brought up ahead of time during departure checks and the
+  last stretch home, and kept for 30 s after each request, so the read, the command and its
+  retries share one connection (field test 6). Never used while roaming; a request is only a few
+  KB. Diagnostics records which network door commands use and why.
 - With a countdown set, a notification lets you cancel. For opening, the countdown starts early
   based on your speed, so the door still begins moving at your radius.
 
@@ -107,7 +118,9 @@ listener is started while the app is open, and that is enough for it to keep lis
 phone locked). Avoid "Only this time", which Android takes back soon after you leave the app.
 
 Saying "Open the garage" or "Close the garage" ("the" and "door" are both optional) then opens or
-closes the door, with the phone locked and the app closed, but only within 500 ft of the garage:
+closes the door, with the phone locked and the app closed, but only within 500 ft of the garage.
+A short pause mid-phrase ("Open the... garage") is fine: the recognizer splits it in two, and the
+halves are joined when they come within 4 seconds (field test 6).
 
 - **When it listens** (only with hands-free on):
   - **Arriving or leaving**: while a hands-free location reading from the last 2 minutes puts you
@@ -126,8 +139,11 @@ closes the door, with the phone locked and the app closed, but only within 500 f
   within 30 s is ignored; the other command always goes through.
 - **After a phone restart or app update**, Android does not let an app reopen the microphone in
   the background. A "Voice command paused" notification appears; tap it (or open the app) once.
+  Airplane mode does not stop it; with airplane mode on (Wi-Fi on), commands go over Wi-Fi.
+- A voice **open** at home also starts the departure check, like the app and the widget.
 - **Tuning**: Diagnostics logs "Voice: listening (within 500 ft: reason)" / "stopped listening",
-  every phrase it acts on and near misses, each with a confidence score. A command needs each of
+  every phrase it acts on and near misses (anything heard with "open", "close" or "garage"), each
+  with a confidence score. A command needs each of
   its words heard with confidence 0.6 or more (`VoicePhrases.MIN_WORD_CONFIDENCE`).
 
 ### Car Bluetooth (optional)
@@ -187,7 +203,8 @@ adb uninstall com.raf.garagedoor.test
 2. Open the app and tap **Sign in with myQ**. myQ's own page opens in a Chrome tab (Google or
    email sign-in). If Android asks which app should open the myQ link, choose **Raf's Garage**.
 3. On the **Auto open & close** card, tap **Set up**, place the garage on the map, set the radii
-   and tap **Save**. Suggested starting point: *Open within* 80–150 ft, *Close beyond* 150–200 ft.
+   and tap **Save**. Suggested starting point: *Open within* 250–300 ft (the door is up when you arrive on a bike),
+   *Close beyond* 100 ft (it closes a few seconds after you leave the driveway).
 4. Tap **Hands-free settings** and complete **Phone setup**:
    - *Precise location*
    - *Allow all the time* (in the settings page Android opens, choose "Allow all the time")
@@ -247,8 +264,9 @@ Without a key the app still builds; the map is just blank.
   means no screen wake in the last minute (wake the screen, then speak). Then check Diagnostics
   for "Voice: listening". If it never appears, you were not within 500 ft (hands-free must be on
   and have you at home), the microphone permission is missing, or the "Voice command paused"
-  notification needs a tap. If it shows "heard ... not sure enough to act", the confidence was
-  below 0.6.
+  notification needs a tap. If it shows "heard ... not sure enough to act", either the confidence
+  was below 0.6 or only part of the phrase was heard (e.g. "garage" alone: the first half was
+  missed or came more than 4 s earlier).
 - *Battery*: Samsung's per-app percentage is the app's share of the battery *used* since the last
   charge, not of the whole battery. For real numbers, `adb shell dumpsys batterystats` (UID
   u0a859; see the field test log). In field test 5, a full day off the charger, the app used 52 mAh
@@ -288,7 +306,8 @@ board wired to the opener) can replace the myQ cloud without touching the UI or 
 3. Hands-free open and close, left-open monitor, diagnostics ✅ (field testing)
 4. Home-screen widget ✅ (field testing), Quick Settings tile
 5. Voice open/close within 500 ft, lock-screen Open button, myQ over mobile data ✅ (field testing;
-   battery waste and voice at home fixed after field test 5)
+   battery waste and voice at home fixed after field test 5; independent radii, mobile data held
+   for commands, away watch recovery after field test 6)
 6. Next candidates: keep the away watch running when one reading right after leaving lands back
    inside the close radius (field test 5, 16:37); end departure checks early when the user stays
    home (saves GPS, risks the close). Ideas, not started: Quick Settings tile; wall-button detection without myQ (ratgdo); Tesla

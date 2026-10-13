@@ -41,6 +41,37 @@ class VoskModelOnDeviceTest {
         assertEquals(EXPECTED, commands)
     }
 
+    /** As from the microphone: small chunks, so the recognizer ends an utterance at the pause. */
+    @Test
+    fun phraseSplitByAPauseActsOnceJoined() {
+        val model = unpackModel()
+        val commands = SPLIT_SAMPLES.keys.associateWith { sample -> commandFromStream(model, sample) }
+        model.close()
+        assertEquals(SPLIT_SAMPLES, commands)
+    }
+
+    private fun commandFromStream(model: Model, sample: String): DoorCommand? {
+        val results = Recognizer(model, SAMPLE_RATE, VoicePhrases.GRAMMAR).use { recognizer ->
+            recognizer.setWords(true)
+            resultsInChunks(recognizer, audioOf(sample)) + recognizer.finalResult
+        }.mapNotNull(VoicePhrases::parse)
+        Log.i(LOG_TAG, "$sample streamed -> ${results.map { it.text }}")
+        val joiner = SplitPhraseJoiner()
+        val now = java.time.Instant.now()
+        return results.firstNotNullOfOrNull { heard -> VoicePhrases.commandIn(joiner.withRecent(heard, now)) }
+    }
+
+    private fun resultsInChunks(recognizer: Recognizer, audio: ByteArray): List<String> =
+        audio.toList().chunked(CHUNK_BYTES).mapNotNull { chunk ->
+            val bytes = chunk.toByteArray()
+            if (recognizer.acceptWaveForm(bytes, bytes.size)) recognizer.result else null
+        }
+
+    private fun audioOf(sample: String): ByteArray {
+        val pcm = InstrumentationRegistry.getInstrumentation().context.assets.open("voice-samples/$sample.wav").use { it.readBytes() }
+        return pcm.copyOfRange(dataChunkStart(pcm), pcm.size)
+    }
+
     private fun heardIn(model: Model, sample: String): HeardPhrase? {
         val pcm = InstrumentationRegistry.getInstrumentation().context.assets.open("voice-samples/$sample.wav").use { it.readBytes() }
         val audio = pcm.copyOfRange(dataChunkStart(pcm), pcm.size)
@@ -74,6 +105,11 @@ class VoskModelOnDeviceTest {
         const val SAMPLE_RATE = 16_000f
         const val DATA_HEADER_BYTES = 8
         const val LOG_TAG = "VoskSample"
+        const val CHUNK_BYTES = 3_200 // 0.1 s of 16 kHz 16-bit audio
+        val SPLIT_SAMPLES: Map<String, DoorCommand?> = mapOf(
+            "open_the_pause_garage" to DoorCommand.OPEN,
+            "close_the_pause_garage_door" to DoorCommand.CLOSE,
+        )
         /** Sample file name to the command it should give; null means it must do nothing. */
         val EXPECTED: Map<String, DoorCommand?> = mapOf(
             "open_garage_door" to DoorCommand.OPEN,

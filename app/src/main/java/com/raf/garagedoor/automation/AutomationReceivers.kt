@@ -57,7 +57,10 @@ class GeofenceTransitionReceiver : BroadcastReceiver() {
     }
 }
 
-/** Started walking/driving while home (or not yet known) -> short departure session to see whether the user is leaving. */
+/**
+ * Started walking/driving while home (or not yet known) -> short departure session to see whether
+ * the user is leaving. While away it only brings back an away watch that is no longer running.
+ */
 class ActivityTransitionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (!ActivityTransitionResult.hasResult(intent)) return
@@ -68,6 +71,7 @@ class ActivityTransitionReceiver : BroadcastReceiver() {
         if (!startedMoving) return
         launchWithContainer(context) { container ->
             val zone = container.presenceRepository.current().zone
+            if (zone == PresenceZone.AWAY && AwayWatchResume.resumeIfAway(context, container, reason = "started moving")) return@launchWithContainer
             // UNKNOWN is treated like HOME: if the app does not know where the user is, it should look.
             val started = zone != PresenceZone.AWAY && PresenceTrackingService.start(context, TrackingPurpose.DEPARTURE)
             container.diagnosticsLog.record("Started moving while $zone${if (started) " -> DEPARTURE" else ""}")
@@ -82,18 +86,11 @@ class AutomationRestoreReceiver : BroadcastReceiver() {
         launchWithContainer(context) { container ->
             if (intent.action == Intent.ACTION_BOOT_COMPLETED) container.carConnection.clear()
             container.automationCoordinator.forceSync()
-            resumeArrivalWatchIfAway(context, container)
+            AwayWatchResume.resumeIfAway(context, container, reason = "after a restart or update")
             if (container.automationSettings.current().voiceCommandsEnabled) container.automationNotifications.showVoicePaused()
         }
     }
 
-    /** Geofences alone would miss the return, so the away watch must survive a reboot or update. */
-    private suspend fun resumeArrivalWatchIfAway(context: Context, container: AppContainer) {
-        val isAway = container.presenceRepository.current().zone == PresenceZone.AWAY
-        if (!isAway || !container.automationSettings.current().isEnabled) return
-        val started = PresenceTrackingService.start(context, TrackingPurpose.ARRIVAL)
-        container.diagnosticsLog.record("Resumed away watch after restart${if (started) "" else " (Android refused to start tracking)"}")
-    }
 }
 
 class CountdownCancelReceiver : BroadcastReceiver() {

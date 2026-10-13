@@ -77,7 +77,7 @@ private fun CameraFitEffect(cameraState: CameraPositionState, draft: GeofenceDra
     LaunchedEffect(request, isMapLoaded) {
         val center = latestDraft.center ?: return@LaunchedEffect
         if (!isMapLoaded || request == 0) return@LaunchedEffect
-        val bounds = boundsAround(center, latestDraft.closeRadiusMeters * FIT_RADIUS_MARGIN)
+        val bounds = boundsAround(center, latestDraft.outerRadiusMeters * FIT_RADIUS_MARGIN)
         cameraState.animate(CameraUpdateFactory.newLatLngBounds(bounds, FIT_PADDING_PX))
     }
 }

@@ -73,17 +73,16 @@ class AppContainer(context: Context) {
     private val config = MyQApiConfig()
     private val headers = MyQRequestHeaders(config)
     /** Short timeouts so a dead network fails fast and the retry policy can try again on the new one. */
-    private val http = MyQHttpExecutor(
-        MobileDataFirstRoute(
-            defaultClient = OkHttpClient.Builder()
-                .connectTimeout(Duration.ofSeconds(HTTP_CONNECT_TIMEOUT_SECONDS))
-                .callTimeout(Duration.ofSeconds(HTTP_CALL_TIMEOUT_SECONDS))
-                .build(),
-            mobileData = MobileDataNetwork(context),
-            isMobileDataAllowed = { automationSettings.current().useMobileData },
-            record = { message -> diagnosticsLog.record(message) },
-        ),
+    private val myQRoute = MobileDataFirstRoute(
+        defaultClient = OkHttpClient.Builder()
+            .connectTimeout(Duration.ofSeconds(HTTP_CONNECT_TIMEOUT_SECONDS))
+            .callTimeout(Duration.ofSeconds(HTTP_CALL_TIMEOUT_SECONDS))
+            .build(),
+        mobileData = MobileDataNetwork(context, applicationScope),
+        isMobileDataAllowed = { automationSettings.current().useMobileData },
+        record = { message -> diagnosticsLog.record(message) },
     )
+    private val http = MyQHttpExecutor(myQRoute)
 
     val myQSession = MyQSession(
         config = config,
@@ -176,6 +175,7 @@ class AppContainer(context: Context) {
         diagnostics = diagnosticsLog,
         clock = clock,
         isPowerSavingLimitingLocation = powerSavingCheck::isLimitingLocation,
+        prepareForDoorCommand = myQRoute::prepareForDoorCommand,
     )
 
     val departureOnDoorOpen = DepartureOnDoorOpen(context.applicationContext, automationSettings, presenceRepository, diagnosticsLog)
